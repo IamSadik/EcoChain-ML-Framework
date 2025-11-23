@@ -1,6 +1,7 @@
-Hybrid framework for energy-efficient ML inference with lightweight blockchain verification in edge computing environments.
+# Hybrid framework for energy-efficient ML inference with lightweight blockchain verification in edge computing environments.
 
-📁 Project Structure
+## 📁 Project Structure
+```
 /ecochain-ml/
 ├─ /simulator/             # SimPy or custom simulator
 │   ├─ env.py              # Simulation environment setup
@@ -19,8 +20,8 @@ Hybrid framework for energy-efficient ML inference with lightweight blockchain v
 ├─ /notebooks/             # Jupyter notebooks for plots, metrics, analysis
 ├─ requirements.txt        # Python dependencies
 └─ README.md
-
-🔹 Overview
+```
+## 🔹 Overview
 
 EcoChain-ML integrates:
 
@@ -32,7 +33,7 @@ Renewable-Aware Orchestration – Schedules tasks on nodes with high renewable e
 
 Designed for research and simulation, this framework can run entirely on a standard PC with no special hardware.
 
-⚡ Features
+##⚡ Features
 
 Simulation of energy-aware ML inference on edge nodes.
 
@@ -42,7 +43,7 @@ Immutable blockchain verification of results and energy claims.
 
 Baseline comparisons for standard inference, energy optimization only, blockchain only, and integrated EcoChain-ML.
 
-🛠️ Tech Stack
+##🛠️ Tech Stack
 
 ML Frameworks: PyTorch, TensorFlow, ONNX Runtime, Hugging Face Transformers
 
@@ -54,7 +55,7 @@ Energy Tracking: CodeCarbon
 
 Visualization: Matplotlib, Seaborn, Jupyter Notebooks
 
-🚀 Installation
+##🚀 Installation
 git clone https://github.com/yourusername/ecochain-ml.git
 cd ecochain-ml
 pip install -r requirements.txt
@@ -62,29 +63,29 @@ pip install -r requirements.txt
 🎯 Usage
 
 Run Simulation:
-
+```
 python simulator/env.py
-
+```
 
 Run ML Inference:
-
+```
 python edge_inference/run_inference.py
-
+```
 
 Measure Energy Consumption:
-
+```
 python edge_inference/measure_energy.py
-
+```
 
 Blockchain Verification (optional):
-
+```
 python blockchain/verifier.py
-
+```
 
 Analyze Experimental Results:
-
+```
 python experiments/analyze_results.py
-
-📄 License
+```
+##📄 License
 
 MIT License
