@@ -25,41 +25,56 @@
 
 EcoChain-ML integrates:
 
-Energy-Aware ML Inference Scheduler – Optimizes model execution based on energy availability and renewable sources.
+- Energy-Aware ML Inference Scheduler – Optimizes model execution based on energy availability and renewable sources.
 
-Lightweight Blockchain Verification – Verifies inference results with a low-overhead Proof-of-Stake protocol.
+- Lightweight Blockchain Verification – Verifies inference results with a low-overhead Proof-of-Stake protocol.
 
-Renewable-Aware Orchestration – Schedules tasks on nodes with high renewable energy while maintaining performance.
+- Renewable-Aware Orchestration – Schedules tasks on nodes with high renewable energy while maintaining performance.
 
-Designed for research and simulation, this framework can run entirely on a standard PC with no special hardware.
+- Designed for research and simulation, this framework can run entirely on a standard PC with no special hardware.
 
 ## ⚡ Features
 
-Simulation of energy-aware ML inference on edge nodes.
+- Simulation of energy-aware ML inference on edge nodes.
 
-Renewable energy-aware scheduling for sustainable computation.
+- Renewable energy-aware scheduling for sustainable computation.
 
-Immutable blockchain verification of results and energy claims.
+- Immutable blockchain verification of results and energy claims.
 
-Baseline comparisons for standard inference, energy optimization only, blockchain only, and integrated EcoChain-ML.
+- Baseline comparisons for standard inference, energy optimization only, blockchain only, and integrated EcoChain-ML.
 
 ## 🛠️ Tech Stack
 
-ML Frameworks: PyTorch, TensorFlow, ONNX Runtime, Hugging Face Transformers
+- ML Frameworks: PyTorch, TensorFlow, ONNX Runtime, Hugging Face Transformers
 
-Simulation: SimPy or custom Python simulator
+- Simulation: SimPy or custom Python simulator
 
-Blockchain: Web3.py, Ganache, Ethereum testnet (optional)
+- Blockchain: Web3.py, Ganache, Ethereum testnet (optional)
 
-Energy Tracking: CodeCarbon
+- Energy Tracking: CodeCarbon
 
-Visualization: Matplotlib, Seaborn, Jupyter Notebooks
+- Visualization: Matplotlib, Seaborn, Jupyter Notebooks
 
 ## 🚀 Installation
-git clone https://github.com/yourusername/ecochain-ml.git
-cd ecochain-ml
-pip install -r requirements.txt
+Clone Project:
+```
+https://github.com/IamSadik/EcoChain-ML-Framework.git
 
+```
+Create a virtual environment:
+```
+python -m venv venv
+
+```
+Activate the virtual environment:
+```
+venv\Scripts\activate
+
+```
+Install Requirements:
+```
+pip install -r requirements.txt
+```
 ## 🎯 Usage
 
 Run Simulation:
@@ -86,6 +101,6 @@ Analyze Experimental Results:
 ```
 python experiments/analyze_results.py
 ```
-##📄 License
+## 📄 License
 
 MIT License
