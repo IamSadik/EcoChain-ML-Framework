@@ -4,22 +4,29 @@
 ```
 /ecochain-ml/
 ├─ /simulator/             # SimPy or custom simulator
+│   ├─ __init__.py
 │   ├─ env.py              # Simulation environment setup
 │   ├─ scheduler.py        # Energy-aware task scheduling
-│   └─ energy_profiles.py  # Renewable energy profiles
+│   ├─ energy_profiles.py  # Renewable energy profiles
+│   └─ run_simulation.py   # Script to run the simulation
 ├─ /edge_inference/        # Scripts to run ML inference on local PC
+│   ├─ __init__.py
 │   ├─ run_inference.py    # Main script for inference
 │   ├─ measure_energy.py   # Track energy consumption
 │   └─ models/             # Pre-trained or quantized ML models
 ├─ /blockchain/            # PoS prototype and verification
+│   ├─ __init__.py
 │   ├─ chain.py            # Blockchain core
 │   └─ verifier.py         # Verify inference results & energy claims
 ├─ /experiments/           # Scripts to run experiments and analyze results
+│   ├─ __init__.py
 │   ├─ run_experiment.py
 │   └─ analyze_results.py
 ├─ /notebooks/             # Jupyter notebooks for plots, metrics, analysis
+│   └─ __init__.py
 ├─ requirements.txt        # Python dependencies
 └─ README.md
+
 ```
 ## 🔹 Overview
 
@@ -79,27 +86,27 @@ pip install -r requirements.txt
 
 Run Simulation:
 ```
-python simulator/env.py
+python -m simulator.run_simulation
 ```
 
 Run ML Inference:
 ```
-python edge_inference/run_inference.py
+python -m edge_inference.run_inference
 ```
 
 Measure Energy Consumption:
 ```
-python edge_inference/measure_energy.py
+python -m edge_inference.measure_energy
 ```
 
 Blockchain Verification (optional):
 ```
-python blockchain/verifier.py
+python -m blockchain.verifier
 ```
 
 Analyze Experimental Results:
 ```
-python experiments/analyze_results.py
+python -m experiments.analyze_results
 ```
 ## 📄 License
 
