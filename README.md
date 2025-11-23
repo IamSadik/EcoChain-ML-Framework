@@ -1,76 +1,90 @@
-EcoChain-ML
+Hybrid framework for energy-efficient ML inference with lightweight blockchain verification in edge computing environments.
 
-Hybrid framework for energy-efficient machine learning inference with lightweight blockchain verification in edge computing environments.
+📁 Project Structure
+/ecochain-ml/
+├─ /simulator/             # SimPy or custom simulator
+│   ├─ env.py              # Simulation environment setup
+│   ├─ scheduler.py        # Energy-aware task scheduling
+│   └─ energy_profiles.py  # Renewable energy profiles
+├─ /edge_inference/        # Scripts to run ML inference on local PC
+│   ├─ run_inference.py    # Main script for inference
+│   ├─ measure_energy.py   # Track energy consumption
+│   └─ models/             # Pre-trained or quantized ML models
+├─ /blockchain/            # PoS prototype and verification
+│   ├─ chain.py            # Blockchain core
+│   └─ verifier.py         # Verify inference results & energy claims
+├─ /experiments/           # Scripts to run experiments and analyze results
+│   ├─ run_experiment.py
+│   └─ analyze_results.py
+├─ /notebooks/             # Jupyter notebooks for plots, metrics, analysis
+├─ requirements.txt        # Python dependencies
+└─ README.md
 
-Overview
+🔹 Overview
 
-EcoChain-ML is a research-focused framework that integrates:
+EcoChain-ML integrates:
 
-Energy-Aware ML Inference Scheduler: Optimizes ML model execution based on energy profiles and renewable availability.
+Energy-Aware ML Inference Scheduler – Optimizes model execution based on energy availability and renewable sources.
 
-Lightweight Blockchain Verification: Verifies inference results and energy usage using a low-overhead Proof-of-Stake (PoS) protocol.
+Lightweight Blockchain Verification – Verifies inference results with a low-overhead Proof-of-Stake protocol.
 
-Renewable-Aware Orchestration: Routes tasks to nodes with high renewable energy availability while balancing latency and performance.
+Renewable-Aware Orchestration – Schedules tasks on nodes with high renewable energy while maintaining performance.
 
-This project targets sustainable AI deployment and provides tools to simulate and measure energy-efficient inference in edge computing setups.
+Designed for research and simulation, this framework can run entirely on a standard PC with no special hardware.
 
-Features
+⚡ Features
 
-Simulation of edge nodes with energy-aware scheduling.
+Simulation of energy-aware ML inference on edge nodes.
 
-Lightweight blockchain for verifiable ML inference results.
+Renewable energy-aware scheduling for sustainable computation.
 
-Integration with renewable energy profiles for workload optimization.
+Immutable blockchain verification of results and energy claims.
 
-Baseline comparisons for standard inference vs. optimized approaches.
+Baseline comparisons for standard inference, energy optimization only, blockchain only, and integrated EcoChain-ML.
 
-Tech Stack
+🛠️ Tech Stack
 
-ML & Inference: Python, PyTorch/TensorFlow, ONNX Runtime, Hugging Face Transformers
+ML Frameworks: PyTorch, TensorFlow, ONNX Runtime, Hugging Face Transformers
+
+Simulation: SimPy or custom Python simulator
 
 Blockchain: Web3.py, Ganache, Ethereum testnet (optional)
 
-Simulation: SimPy or custom Python simulation
+Energy Tracking: CodeCarbon
 
-Energy Measurement: CodeCarbon
+Visualization: Matplotlib, Seaborn, Jupyter Notebooks
 
-Visualization: Matplotlib / Seaborn
-
-Installation
+🚀 Installation
 git clone https://github.com/yourusername/ecochain-ml.git
 cd ecochain-ml
 pip install -r requirements.txt
 
-Usage
+🎯 Usage
 
-Configure simulation parameters in config.py.
+Run Simulation:
 
-Run the inference scheduler simulation:
-
-python run_simulation.py
+python simulator/env.py
 
 
-Run blockchain verification module (optional):
+Run ML Inference:
 
-python run_blockchain.py
+python edge_inference/run_inference.py
 
 
-Analyze metrics using analysis/ scripts.
+Measure Energy Consumption:
 
-Project Structure
-ecochain-ml/
-├── config/          # Configuration files for simulation and blockchain
-├── ecochain/        # Core framework: scheduler, orchestration, blockchain
-├── data/            # Renewable energy traces, workload traces
-├── experiments/     # Scripts for running experiments
-├── analysis/        # Scripts for plotting and metrics evaluation
-├── requirements.txt # Python dependencies
-└── README.md
+python edge_inference/measure_energy.py
 
-Contributing
 
-This is primarily a research project. Contributions for testing, simulations, or extending energy-aware ML techniques are welcome.
+Blockchain Verification (optional):
 
-License
+python blockchain/verifier.py
+
+
+Analyze Experimental Results:
+
+python experiments/analyze_results.py
+
+📄 License
 
 MIT License
