@@ -33,7 +33,7 @@ Renewable-Aware Orchestration – Schedules tasks on nodes with high renewable e
 
 Designed for research and simulation, this framework can run entirely on a standard PC with no special hardware.
 
-##⚡ Features
+## ⚡ Features
 
 Simulation of energy-aware ML inference on edge nodes.
 
@@ -43,7 +43,7 @@ Immutable blockchain verification of results and energy claims.
 
 Baseline comparisons for standard inference, energy optimization only, blockchain only, and integrated EcoChain-ML.
 
-##🛠️ Tech Stack
+## 🛠️ Tech Stack
 
 ML Frameworks: PyTorch, TensorFlow, ONNX Runtime, Hugging Face Transformers
 
@@ -55,12 +55,12 @@ Energy Tracking: CodeCarbon
 
 Visualization: Matplotlib, Seaborn, Jupyter Notebooks
 
-##🚀 Installation
+## 🚀 Installation
 git clone https://github.com/yourusername/ecochain-ml.git
 cd ecochain-ml
 pip install -r requirements.txt
 
-🎯 Usage
+## 🎯 Usage
 
 Run Simulation:
 ```
