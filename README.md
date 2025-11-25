@@ -2,30 +2,49 @@
 
 ## 📁 Project Structure
 ```
-/ecochain-ml/
-├─ /simulator/             # SimPy or custom simulator
-│   ├─ __init__.py
-│   ├─ env.py              # Simulation environment setup
-│   ├─ scheduler.py        # Energy-aware task scheduling
-│   ├─ energy_profiles.py  # Renewable energy profiles
-│   └─ run_simulation.py   # Script to run the simulation
-├─ /edge_inference/        # Scripts to run ML inference on local PC
-│   ├─ __init__.py
-│   ├─ run_inference.py    # Main script for inference
-│   ├─ measure_energy.py   # Track energy consumption
-│   └─ models/             # Pre-trained or quantized ML models
-├─ /blockchain/            # PoS prototype and verification
-│   ├─ __init__.py
-│   ├─ chain.py            # Blockchain core
-│   └─ verifier.py         # Verify inference results & energy claims
-├─ /experiments/           # Scripts to run experiments and analyze results
-│   ├─ __init__.py
-│   ├─ run_experiment.py
-│   └─ analyze_results.py
-├─ /notebooks/             # Jupyter notebooks for plots, metrics, analysis
-│   └─ __init__.py
-├─ requirements.txt        # Python dependencies
-└─ README.md
+ecochain-ml/
+├── README.md
+├── requirements.txt
+├── config/
+│   ├── system_config.yaml
+│   └── experiment_config.yaml
+├── data/
+│   ├── renewable_traces/
+│   ├── workload_traces/
+│   └── energy_profiles/
+├── src/
+│   ├── __init__.py
+│   ├── scheduler/
+│   │   ├── __init__.py
+│   │   ├── energy_aware_scheduler.py
+│   │   └── renewable_predictor.py
+│   ├── blockchain/
+│   │   ├── __init__.py
+│   │   ├── verification_layer.py
+│   │   └── pos_consensus.py
+│   ├── inference/
+│   │   ├── __init__.py
+│   │   ├── model_executor.py
+│   │   └── quantization.py
+│   ├── monitoring/
+│   │   ├── __init__.py
+│   │   └── energy_monitor.py
+│   └── simulator/
+│       ├── __init__.py
+│       ├── edge_node.py
+│       └── network_simulator.py
+├── experiments/
+│   ├── baseline_comparison.py
+│   ├── ablation_study.py
+│   └── scalability_test.py
+├── results/
+│   ├── metrics/
+│   ├── plots/
+│   └── logs/
+└── paper/
+    ├── figures/
+    ├── tables/
+    └── manuscript.tex
 
 ```
 ## 🔹 Overview
