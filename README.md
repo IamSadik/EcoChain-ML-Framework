@@ -75,7 +75,7 @@ EcoChain-ML integrates:
 
 - Simulation: SimPy or custom Python simulator
 
-- Blockchain: Web3.py, Ganache, Ethereum testnet (optional)
+- Blockchain: Web3.py, Ganache, Ethereum testnet (optional), custom PoS implementation
 
 - Energy Tracking: CodeCarbon
 
@@ -105,28 +105,16 @@ pip install -r requirements.txt
 
 Run Simulation:
 ```
-python -m simulator.run_simulation
+python experiments/baseline_comparison.py
 ```
 
-Run ML Inference:
-```
-python -m edge_inference.run_inference
-```
+## 📊 Results & Visualization
+- Visualize metrics and performance comparisons using Matplotlib and Seaborn.
+- Generate plots for energy consumption and inference accuracy.
+- Analyze experimental results using the scripts in the `experiments` directory.
+- Review logs and metrics stored in the `results` directory for detailed insights.
 
-Measure Energy Consumption:
-```
-python -m edge_inference.measure_energy
-```
 
-Blockchain Verification (optional):
-```
-python -m blockchain.verifier
-```
-
-Analyze Experimental Results:
-```
-python -m experiments.analyze_results
-```
 ## 📄 License
 
 MIT License
