@@ -1,0 +1,67 @@
+# Experiment Configuration
+
+# Baseline Methods
+baselines:
+  - name: "Round-Robin"
+    description: "Simple round-robin scheduling without energy awareness"
+  - name: "Random"
+    description: "Random task assignment"
+  - name: "Energy-Greedy"
+    description: "Always use lowest frequency without renewable awareness"
+  - name: "Renewable-Only"
+    description: "Only renewable-aware scheduling without DVFS"
+
+# Ablation Study Components
+ablation:
+  components:
+    - name: "Full-EcoChain-ML"
+      renewable_aware: true
+      dvfs_enabled: true
+      blockchain_enabled: true
+      model_compression: true
+    - name: "No-Blockchain"
+      renewable_aware: true
+      dvfs_enabled: true
+      blockchain_enabled: false
+      model_compression: true
+    - name: "No-DVFS"
+      renewable_aware: true
+      dvfs_enabled: false
+      blockchain_enabled: true
+      model_compression: true
+    - name: "No-Compression"
+      renewable_aware: true
+      dvfs_enabled: true
+      blockchain_enabled: true
+      model_compression: false
+    - name: "No-Renewable"
+      renewable_aware: false
+      dvfs_enabled: true
+      blockchain_enabled: true
+      model_compression: true
+
+# Scalability Test
+scalability:
+  node_counts: [5, 10, 20, 50, 100]
+  workload_multipliers: [1, 2, 5, 10]
+  
+# Metrics to Collect
+metrics:
+  - energy_consumption  # Total kWh
+  - renewable_utilization  # Percentage
+  - carbon_emissions  # kg CO2
+  - average_latency  # milliseconds
+  - throughput  # requests per second
+  - qos_violations  # count
+  - blockchain_overhead  # percentage
+  - accuracy  # model accuracy after compression
+
+# Workload Configuration
+workload:
+  arrival_rate: 10  # requests per second (Poisson)
+  peak_hours: [9, 10, 11, 14, 15, 16]  # Peak traffic hours
+  peak_multiplier: 3.0
+  task_types:
+    - image_classification: 0.5
+    - object_detection: 0.3
+    - nlp_inference: 0.2

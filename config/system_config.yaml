@@ -1,0 +1,71 @@
+# EcoChain-ML System Configuration
+
+# Edge Node Configuration
+edge_nodes:
+  count: 20
+  cpu_frequencies: [600, 800, 1000, 1200, 1400, 1600, 1800, 2000]  # MHz
+  power_consumption:
+    idle: 2.0  # Watts
+    base: 5.0  # Watts at minimum frequency
+    max: 15.0  # Watts at maximum frequency
+  memory: 4096  # MB
+  storage: 32768  # MB
+
+# Renewable Energy Configuration
+renewable_energy:
+  solar:
+    peak_power: 100  # Watts per node
+    efficiency: 0.18
+    availability_pattern: "sinusoidal"  # Daily pattern
+  wind:
+    peak_power: 80  # Watts per node
+    efficiency: 0.35
+    availability_pattern: "stochastic"
+  grid_carbon_intensity: 0.5  # kg CO2/kWh
+
+# ML Model Configuration
+ml_models:
+  - name: "ResNet18"
+    size_mb: 44.7
+    ops: 1.8e9  # FLOPs
+    accuracy: 0.897
+  - name: "MobileNetV2"
+    size_mb: 13.6
+    ops: 3.0e8
+    accuracy: 0.885
+  - name: "EfficientNet-B0"
+    size_mb: 20.5
+    ops: 3.9e8
+    accuracy: 0.902
+
+# Quantization Configuration
+quantization:
+  enabled: true
+  bits: [8, 4]
+  accuracy_loss: [0.01, 0.03]
+  size_reduction: [0.75, 0.875]
+  speedup: [1.5, 2.0]
+
+# Blockchain Configuration
+blockchain:
+  consensus: "PoS"
+  block_time: 10  # seconds
+  verification_energy: 0.1  # Watts per verification
+  hash_algorithm: "SHA256"
+  validators: 5
+
+# Scheduler Configuration
+scheduler:
+  algorithm: "renewable_aware"
+  prediction_window: 3600  # seconds (1 hour)
+  rebalancing_interval: 300  # seconds (5 minutes)
+  qos_constraint:
+    max_latency: 1000  # milliseconds
+    min_throughput: 100  # requests per second
+
+# Simulation Configuration
+simulation:
+  duration: 86400  # seconds (24 hours)
+  warmup_period: 3600  # seconds (1 hour)
+  time_step: 1  # seconds
+  random_seed: 42
