@@ -73,9 +73,9 @@ EcoChain-ML integrates:
 
 - ML Frameworks: PyTorch, TensorFlow, ONNX Runtime, Hugging Face Transformers
 
-- Simulation: SimPy or custom Python simulator
+- Simulation: SimPy or custom Python simulator 
 
-- Blockchain: Web3.py, Ganache, Ethereum testnet (optional), custom PoS implementation
+- Blockchain: Web3.py, Ganache, Ethereum testnet (optional), custom PoS implementation 
 
 - Energy Tracking: CodeCarbon
 
@@ -103,9 +103,9 @@ pip install -r requirements.txt
 ```
 ## 🎯 Usage
 
-Run Simulation:
+Run baseline comparison experiment:
 ```
-python experiments/baseline_comparison.py
+python experiments/baseline_comparison.py 
 ```
 
 ## 📊 Results & Visualization
