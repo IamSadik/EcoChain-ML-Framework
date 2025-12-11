@@ -10,6 +10,7 @@
 
 ## 📋 Table of Contents
 
+
 - [Overview](#-overview)
 - [Key Features](#-key-features)
 - [Architecture](#️-architecture)
@@ -21,6 +22,7 @@
 - [Components](#-components)
 - [Future Work](#-future-work)
 - [License](#-license)
+
 
 ---
 
@@ -353,14 +355,14 @@ Frequency selection based on renewable availability:
 - **Output:** Renewable availability (0-1)
 - **Lookback:** 24 hours, Horizon: 1 hour
 
-### 4. Blockchain Verifier (PoS)
+### 3. Blockchain Verifier (PoS)
 
 - **Consensus:** Proof-of-Stake (stake-weighted validator selection)
 - **Block Time:** 5 seconds
 - **Energy:** 0.00001 kWh per transaction
 - **Carbon Credits:** $0.05 per gCO2 avoided
 
-### 5. Model Compressor
+### 4. Model Compressor
 
 - **Quantization:** INT8 dynamic (4x compression, 30-40% energy savings)
 - **Pruning:** Magnitude-based L1 (30% sparsity)
