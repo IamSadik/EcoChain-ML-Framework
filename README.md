@@ -12,12 +12,12 @@
 
 - [Overview](#-overview)
 - [Key Features](#-key-features)
-- [Architecture](#-architecture)
+- [Architecture](#️-architecture)
 - [Project Structure](#-project-structure)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
 - [Experimental Results](#-experimental-results)
-- [Configuration](#-configuration)
+- [Configuration](#️-configuration)
 - [Components](#-components)
 - [Future Work](#-future-work)
 - [License](#-license)
@@ -117,6 +117,11 @@ EcoChain-ML-Framework/
 ├── config/
 │   ├── system_config.yaml      # Edge node, blockchain, scheduler config
 │   └── experiment_config.yaml  # ML models, compression, workload config
+├── docs/
+│   └── images/                 # Result visualizations and plots
+│       ├── energy_comparison.png
+│       ├── renewable_comparison.png
+│       └── radar_comparison.png
 ├── src/
 │   ├── simulator/
 │   │   ├── network_simulator.py  # Main orchestrator for simulations
@@ -240,6 +245,17 @@ results/
 | 🌞 Renewable Increase | **+59.87 pp** |
 | 💰 Net Cost | **PROFIT** (negative = earning from carbon credits) |
 
+### Result Visualizations
+
+#### Energy Consumption Comparison
+![Energy Comparison](docs/images/energy_comparison.png)
+
+#### Renewable Energy Utilization
+![Renewable Comparison](docs/images/renewable_comparison.png)
+
+#### Multi-Metric Performance Radar Chart
+![Radar Comparison](docs/images/radar_comparison.png)
+
 ### Ablation Study Results
 
 | Component Removed | Energy Δ | Carbon Δ | Impact |
@@ -332,11 +348,6 @@ score = (0.4 × QoS) + (0.3 × Energy) + (0.3 × Renewable) + (0.1 × LoadBalanc
 Frequency selection based on renewable availability:
 
 ```
-target_freq = min_freq + range × (0.7 × renewable_factor + 0.3 × priority)
-```
-
-### 3. Renewable Predictor (LSTM)
-
 - **Architecture:** 2 layers, 64 hidden units, 0.2 dropout
 - **Input:** [hour, day_of_week, solar_power, wind_power]
 - **Output:** Renewable availability (0-1)
