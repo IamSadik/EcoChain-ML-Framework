@@ -349,25 +349,25 @@ score = (0.4 × QoS) + (0.3 × Energy) + (0.3 × Renewable) + (0.1 × LoadBalanc
 
 Frequency selection based on renewable availability:
 
-```
+
 - **Architecture:** 2 layers, 64 hidden units, 0.2 dropout
 - **Input:** [hour, day_of_week, solar_power, wind_power]
 - **Output:** Renewable availability (0-1)
 - **Lookback:** 24 hours, Horizon: 1 hour
-```
+
 ### 3. Blockchain Verifier (PoS)
-```
+
 
 - **Consensus:** Proof-of-Stake (stake-weighted validator selection)
 - **Block Time:** 5 seconds
 - **Energy:** 0.00001 kWh per transaction
 - **Carbon Credits:** $0.05 per gCO2 avoided
-```
+
 ### 4. Model Compressor
-```
+
 - **Quantization:** INT8 dynamic (4x compression, 30-40% energy savings)
 - **Pruning:** Magnitude-based L1 (30% sparsity)
-```
+
 ---
 
 ### 5. Future Work
