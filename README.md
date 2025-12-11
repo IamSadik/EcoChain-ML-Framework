@@ -379,10 +379,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use EcoChain-ML in your research, please cite:
 
 ```bibtex
-@article{ecochain-ml2025,
-  title={EcoChain-ML: A Hybrid Framework for Energy-Efficient ML Inference with Blockchain Verification},
-  author={Your Name},
-  year={2025}
+@inproceedings{sadikmahmud2025ecochain,
+  title={EcoChain-ML: A Hybrid Framework for Energy-Efficient Machine Learning Model Verification Using Lightweight Blockchain},
+  author={Sadik Mahmud},
+  booktitle={Proceedings of IEEE/ACM Conference Name},
+  year={2025},
+  organization={IEEE/ACM}
 }
 ```
 
