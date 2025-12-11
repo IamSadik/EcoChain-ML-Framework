@@ -2,70 +2,85 @@
 
 # Edge Node Configuration
 edge_nodes:
-  count: 20
-  cpu_frequencies: [600, 800, 1000, 1200, 1400, 1600, 1800, 2000]  # MHz
-  power_consumption:
-    idle: 2.0  # Watts
-    base: 5.0  # Watts at minimum frequency
-    max: 15.0  # Watts at maximum frequency
-  memory: 4096  # MB
-  storage: 32768  # MB
+  - id: "node_1"
+    name: "Solar Edge Node"
+    cpu_cores: 4
+    gpu_available: true
+    gpu_memory_gb: 8
+    renewable_source: "solar"
+    renewable_capacity_watts: 1000
+    initial_battery_percent: 50.0
+    max_frequency_ghz: 2.4
+    min_frequency_ghz: 0.8
+    base_power_watts: 50
+    max_power_watts: 200
+    
+  - id: "node_2"
+    name: "Wind Edge Node"
+    cpu_cores: 4
+    gpu_available: true
+    gpu_memory_gb: 6
+    renewable_source: "wind"
+    renewable_capacity_watts: 800
+    initial_battery_percent: 60.0
+    max_frequency_ghz: 2.2
+    min_frequency_ghz: 0.6
+    base_power_watts: 45
+    max_power_watts: 180
+    
+  - id: "node_3"
+    name: "Hybrid Edge Node"
+    cpu_cores: 8
+    gpu_available: true
+    gpu_memory_gb: 12
+    renewable_source: "solar"
+    renewable_capacity_watts: 1200
+    initial_battery_percent: 75.0
+    max_frequency_ghz: 3.0
+    min_frequency_ghz: 1.0
+    base_power_watts: 60
+    max_power_watts: 250
 
-# Renewable Energy Configuration
-renewable_energy:
-  solar:
-    peak_power: 100  # Watts per node
-    efficiency: 0.18
-    availability_pattern: "sinusoidal"  # Daily pattern
-  wind:
-    peak_power: 80  # Watts per node
-    efficiency: 0.35
-    availability_pattern: "stochastic"
-  grid_carbon_intensity: 0.5  # kg CO2/kWh
-
-# ML Model Configuration
-ml_models:
-  - name: "ResNet18"
-    size_mb: 44.7
-    ops: 1.8e9  # FLOPs
-    accuracy: 0.897
-  - name: "MobileNetV2"
-    size_mb: 13.6
-    ops: 3.0e8
-    accuracy: 0.885
-  - name: "EfficientNet-B0"
-    size_mb: 20.5
-    ops: 3.9e8
-    accuracy: 0.902
-
-# Quantization Configuration
-quantization:
-  enabled: true
-  bits: [8, 4]
-  accuracy_loss: [0.01, 0.03]
-  size_reduction: [0.75, 0.875]
-  speedup: [1.5, 2.0]
+  - id: "node_4"
+    name: "Grid-Only Node (Baseline)"
+    cpu_cores: 4
+    gpu_available: true
+    gpu_memory_gb: 8
+    renewable_source: "grid"
+    renewable_capacity_watts: 0
+    initial_battery_percent: 100.0
+    max_frequency_ghz: 2.6
+    min_frequency_ghz: 1.2
+    base_power_watts: 55
+    max_power_watts: 220
 
 # Blockchain Configuration
 blockchain:
-  consensus: "PoS"
-  block_time: 10  # seconds
-  verification_energy: 0.1  # Watts per verification
-  hash_algorithm: "SHA256"
-  validators: 5
-
+  consensus_mechanism: "proof_of_stake"
+  block_time_seconds: 5
+  difficulty: "adaptive"
+  transaction_fee_kwh: 0.00001  # Energy cost per transaction
+  validator_count: 4
+  stake_amount: 100
+  
 # Scheduler Configuration
 scheduler:
-  algorithm: "renewable_aware"
-  prediction_window: 3600  # seconds (1 hour)
-  rebalancing_interval: 300  # seconds (5 minutes)
-  qos_constraint:
-    max_latency: 1000  # milliseconds
-    min_throughput: 100  # requests per second
-
-# Simulation Configuration
+  algorithm: "energy_aware_dvfs"
+  qos_weight: 0.4
+  energy_weight: 0.3
+  renewable_weight: 0.3
+  prediction_horizon_seconds: 3600
+  dvfs_enabled: true
+  dynamic_scaling: true
+  
+# Energy Monitoring
+monitoring:
+  sampling_interval_seconds: 1
+  carbon_intensity_gco2_per_kwh: 400  # US average
+  electricity_price_per_kwh: 0.12
+  
+# Simulation Parameters
 simulation:
-  duration: 86400  # seconds (24 hours)
-  warmup_period: 3600  # seconds (1 hour)
-  time_step: 1  # seconds
+  duration_hours: 24
+  time_step_seconds: 60
   random_seed: 42

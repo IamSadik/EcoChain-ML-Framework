@@ -1,0 +1,4 @@
+Method,Energy Reduction (%),Carbon Reduction (%),Latency Change (%),Renewable Increase (%),Carbon Credits ($),Net Cost Reduction (%)
+Energy Aware Only,73.87,99.79,-37.96,+59.99,$0.0000,99.79
+Blockchain Only,-2.38,-1.38,+2.54,+0.59,$0.2305,11320.41
+Ecochain Ml,73.66,99.74,-38.00,+59.87,$0.1469,7314.34

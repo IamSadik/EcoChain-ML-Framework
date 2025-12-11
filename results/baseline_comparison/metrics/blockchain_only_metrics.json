@@ -1,0 +1,83 @@
+{
+  "method": "blockchain_only",
+  "use_compression": false,
+  "use_blockchain": true,
+  "total_energy_kwh": 0.028726644135365485,
+  "renewable_energy_kwh": 0.011525899138371678,
+  "grid_energy_kwh": 0.01720074499699381,
+  "renewable_percent": 40.122678737061726,
+  "total_carbon_gco2": 6.880297998797524,
+  "total_carbon_kg": 0.006880297998797524,
+  "carbon_avoided_gco2": 4.610359655348677,
+  "tasks_completed": 1000,
+  "tasks_generated": 1000,
+  "completion_rate": 1.0,
+  "avg_latency_sec": 0.5485069864720392,
+  "std_latency_sec": 0.20094280192367833,
+  "max_latency_sec": 0.8391751772953177,
+  "operational_cost_usd": 0.0020640893996392573,
+  "carbon_credits_earned_usd": 0.23051798276743388,
+  "net_cost_usd": -0.22845389336779462,
+  "blockchain_overhead": {
+    "total_energy_kwh": 0.01,
+    "energy_per_transaction_kwh": 1e-05,
+    "transactions": 1000,
+    "blocks": 2,
+    "carbon_credits_earned_usd": 0.23051798276743388,
+    "carbon_avoided_gco2": 4.610359655348677,
+    "verified_renewable_kwh": 0.011525899138371676,
+    "blockchain_cost_usd": 0.0012,
+    "net_benefit_usd": 0.22931798276743387
+  },
+  "node_stats": [
+    {
+      "node_id": "node_1",
+      "name": "Solar Edge Node #1",
+      "is_busy": false,
+      "current_frequency": 2.4,
+      "tasks_completed": 250,
+      "total_energy_kwh": 0.0066416255605011,
+      "renewable_energy_kwh": 0.002535590280403824,
+      "grid_energy_kwh": 0.004106035280097281,
+      "renewable_percent": 38.17725430779205,
+      "avg_task_time": 0.5388135665983996
+    },
+    {
+      "node_id": "node_2",
+      "name": "Wind Edge Node #2",
+      "is_busy": false,
+      "current_frequency": 2.2,
+      "tasks_completed": 250,
+      "total_energy_kwh": 0.0060765878342042765,
+      "renewable_energy_kwh": 0.005868304952009622,
+      "grid_energy_kwh": 0.00020828288219465008,
+      "renewable_percent": 96.57237107604601,
+      "avg_task_time": 0.5477487625198219
+    },
+    {
+      "node_id": "node_3",
+      "name": "Hybrid Edge Node #3",
+      "is_busy": false,
+      "current_frequency": 3.0,
+      "tasks_completed": 250,
+      "total_energy_kwh": 0.008372899813612304,
+      "renewable_energy_kwh": 0.0031220039059582315,
+      "grid_energy_kwh": 0.005250895907654073,
+      "renewable_percent": 37.287008986810164,
+      "avg_task_time": 0.5443329901400326
+    },
+    {
+      "node_id": "node_4",
+      "name": "Grid-Only Node (Baseline) #4",
+      "is_busy": false,
+      "current_frequency": 2.6,
+      "tasks_completed": 250,
+      "total_energy_kwh": 0.0076355309270478055,
+      "renewable_energy_kwh": 0.0,
+      "grid_energy_kwh": 0.0076355309270478055,
+      "renewable_percent": 0.0,
+      "avg_task_time": 0.5631326266299027
+    }
+  ],
+  "scheduler_stats": {}
+}

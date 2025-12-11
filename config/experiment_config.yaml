@@ -1,67 +1,151 @@
-# Experiment Configuration
+# EcoChain-ML Experiment Configuration
 
-# Baseline Methods
-baselines:
-  - name: "Round-Robin"
-    description: "Simple round-robin scheduling without energy awareness"
-  - name: "Random"
-    description: "Random task assignment"
-  - name: "Energy-Greedy"
-    description: "Always use lowest frequency without renewable awareness"
-  - name: "Renewable-Only"
-    description: "Only renewable-aware scheduling without DVFS"
+# ML Models to Test
+models:
+  - name: "resnet18"
+    type: "image_classification"
+    complexity: 11.7  # Million parameters
+    input_size: [224, 224, 3]
+    
+  - name: "mobilenet_v2"
+    type: "image_classification"
+    complexity: 3.5
+    input_size: [224, 224, 3]
+    
+  - name: "bert_base"
+    type: "text_classification"
+    complexity: 110
+    input_size: 512  # sequence length
+    
+  - name: "efficientnet_b0"
+    type: "image_classification"
+    complexity: 5.3
+    input_size: [224, 224, 3]
 
-# Ablation Study Components
-ablation:
-  components:
-    - name: "Full-EcoChain-ML"
-      renewable_aware: true
-      dvfs_enabled: true
-      blockchain_enabled: true
-      model_compression: true
-    - name: "No-Blockchain"
-      renewable_aware: true
-      dvfs_enabled: true
-      blockchain_enabled: false
-      model_compression: true
-    - name: "No-DVFS"
-      renewable_aware: true
-      dvfs_enabled: false
-      blockchain_enabled: true
-      model_compression: true
-    - name: "No-Compression"
-      renewable_aware: true
-      dvfs_enabled: true
-      blockchain_enabled: true
-      model_compression: false
-    - name: "No-Renewable"
-      renewable_aware: false
-      dvfs_enabled: true
-      blockchain_enabled: true
-      model_compression: true
-
-# Scalability Test
-scalability:
-  node_counts: [5, 10, 20, 50, 100]
-  workload_multipliers: [1, 2, 5, 10]
-  
-# Metrics to Collect
-metrics:
-  - energy_consumption  # Total kWh
-  - renewable_utilization  # Percentage
-  - carbon_emissions  # kg CO2
-  - average_latency  # milliseconds
-  - throughput  # requests per second
-  - qos_violations  # count
-  - blockchain_overhead  # percentage
-  - accuracy  # model accuracy after compression
+# Model Compression Techniques
+compression:
+  quantization:
+    enabled: true
+    method: "dynamic"  # dynamic, static, qat
+    dtype: "int8"
+    
+  pruning:
+    enabled: true
+    pruning_ratio: 0.3
+    method: "magnitude"
+    
+  knowledge_distillation:
+    enabled: false
+    temperature: 3.0
 
 # Workload Configuration
 workload:
-  arrival_rate: 10  # requests per second (Poisson)
-  peak_hours: [9, 10, 11, 14, 15, 16]  # Peak traffic hours
-  peak_multiplier: 3.0
+  num_tasks: 1000
+  duration_hours: 10
+  task_distribution: "poisson"  # poisson, uniform, burst
+  arrival_rate: 100  # tasks per hour
+  arrival_rate_per_hour: 100  # tasks per hour (for compatibility)
   task_types:
-    - image_classification: 0.5
-    - object_detection: 0.3
-    - nlp_inference: 0.2
+    - type: "image_classification"
+      probability: 0.5
+      avg_execution_time_sec: 0.5
+      
+    - type: "text_classification"
+      probability: 0.3
+      avg_execution_time_sec: 0.8
+      
+    - type: "object_detection"
+      probability: 0.2
+      avg_execution_time_sec: 1.2
+
+# Renewable Energy Traces
+renewable_traces:
+  solar:
+    pattern: "sinusoidal"  # Real traces will be generated
+    peak_hour: 12  # noon
+    duration_hours: 12  # 6 AM to 6 PM
+    variability: 0.2
+    
+  wind:
+    pattern: "stochastic"
+    mean_capacity_factor: 0.35
+    variability: 0.4
+
+# Baseline Comparison Methods
+baselines:
+  - name: "standard"
+    description: "No optimization"
+    energy_aware: false
+    dvfs_enabled: false
+    blockchain_enabled: false
+    
+  - name: "energy_aware_only"
+    description: "Energy-aware scheduling without blockchain"
+    energy_aware: true
+    dvfs_enabled: true
+    blockchain_enabled: false
+    
+  - name: "blockchain_only"
+    description: "Blockchain verification without energy optimization"
+    energy_aware: false
+    dvfs_enabled: false
+    blockchain_enabled: true
+    
+  - name: "ecochain_ml"
+    description: "Full EcoChain-ML framework"
+    energy_aware: true
+    dvfs_enabled: true
+    blockchain_enabled: true
+
+# Ablation Study Components
+ablation_components:
+  - component: "renewable_prediction"
+    description: "LSTM-based renewable energy prediction"
+    
+  - component: "dvfs"
+    description: "Dynamic voltage/frequency scaling"
+    
+  - component: "model_compression"
+    description: "Quantization and pruning"
+    
+  - component: "blockchain_verification"
+    description: "PoS-based verification layer"
+
+# Scalability Test Parameters
+scalability:
+  node_counts: [2, 4, 8, 16, 32]
+  task_counts: [100, 500, 1000, 2000, 5000]
+  
+# Metrics to Collect
+metrics:
+  energy:
+    - total_energy_kwh
+    - energy_per_inference
+    - renewable_utilization_percent
+    
+  carbon:
+    - total_carbon_gco2
+    - carbon_intensity
+    - carbon_savings_percent
+    
+  performance:
+    - avg_latency_ms
+    - throughput_tasks_per_sec
+    - task_completion_rate
+    
+  blockchain:
+    - verification_time_ms
+    - blockchain_overhead_percent
+    - transaction_success_rate
+    
+  cost:
+    - operational_cost_usd
+    - cost_savings_percent
+
+# Output Configuration
+output:
+  save_metrics: true
+  save_plots: true
+  save_logs: true
+  plot_format: "pdf"
+  log_level: "INFO"

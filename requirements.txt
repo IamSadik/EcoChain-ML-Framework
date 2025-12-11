@@ -1,28 +1,43 @@
-# Core ML libraries
+# EcoChain-ML Requirements
+# Core ML Libraries
 torch>=2.0.0
+torchvision>=0.15.0
 transformers>=4.30.0
+onnx>=1.14.0
 onnxruntime>=1.15.0
 
-# Energy monitoring
+# Energy Monitoring
 codecarbon>=2.3.0
 psutil>=5.9.0
+py-cpuinfo>=9.0.0
 
-# Blockchain
+# Blockchain Simulation
 web3>=6.0.0
-py-solc-x>=1.1.0
+eth-hash>=0.5.0
+eth-typing>=3.0.0
 
-# Simulation
+# Simulation & Modeling
 simpy>=4.0.1
 numpy>=1.24.0
 pandas>=2.0.0
+scipy>=1.10.0
 
 # Visualization
 matplotlib>=3.7.0
 seaborn>=0.12.0
 plotly>=5.14.0
 
-# Utilities
-pyyaml>=6.0
-tqdm>=4.65.0
+# Machine Learning Utilities
 scikit-learn>=1.3.0
-cryptography
+tqdm>=4.65.0
+
+# Configuration & Data
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Documentation
+sphinx>=7.0.0

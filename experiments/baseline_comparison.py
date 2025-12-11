@@ -1,204 +1,505 @@
+"""
+Baseline Comparison Experiment for EcoChain-ML Framework
+
+This script compares four methods:
+1. Standard (baseline): Round-robin scheduling, no optimization
+2. Energy-aware only: Energy-aware scheduling without blockchain
+3. Blockchain only: Blockchain verification without energy optimization
+4. EcoChain-ML: Full framework with all components
+
+Metrics tracked:
+- Total energy consumption (kWh)
+- Carbon emissions (gCO2)
+- Average latency (seconds)
+- Renewable energy utilization (%)
+- Total cost ($)
+- Blockchain overhead (%)
+"""
+
 import sys
 import os
+import logging
 import yaml
+import json
 import random
-import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm  # Progress bar
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from datetime import datetime
 
-# Add the root directory to path so we can import src
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Set random seeds for reproducibility
+RANDOM_SEED = 42
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
 
-from src.scheduler.energy_aware_scheduler import EcoScheduler
-from src.scheduler.renewable_predictor import RenewablePredictor
-from src.simulator.edge_node import EdgeNode
-from src.blockchain.verification_layer import VerificationLayer, ProofOfInference
-# Note: No need for ModelCompressor import here since it's used inside the scheduler
+# Add parent directory to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-def load_config(path):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
+from src.simulator import NetworkSimulator, EdgeNode
+from src.scheduler import EnergyAwareScheduler, BaselineScheduler, RenewablePredictor
+from src.blockchain import BlockchainVerifier
+from src.inference import ModelExecutor, ModelCompressor
+from src.monitoring import EnergyMonitor
 
-def run_simulation(strategy_name):
-    print(f"\n--- Starting Simulation: {strategy_name} ---")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class BaselineComparison:
+    """Conducts baseline comparison experiments."""
     
-    # 1. Load Configurations
-    sys_config = load_config('config/system_config.yaml')
+    def __init__(self, config_path: str = "config/experiment_config.yaml"):
+        """Initialize comparison experiment."""
+        self.config_path = config_path
+        self.config = self._load_config()
+        self.results = {}
+        
+        # Create results directories
+        self.results_dir = Path("results/baseline_comparison")
+        self.results_dir.mkdir(parents=True, exist_ok=True)
+        self.plots_dir = self.results_dir / "plots"
+        self.plots_dir.mkdir(exist_ok=True)
+        self.metrics_dir = self.results_dir / "metrics"
+        self.metrics_dir.mkdir(exist_ok=True)
+        
+        logger.info(f"Initialized baseline comparison with config: {config_path}")
     
-    # 2. Setup Infrastructure (Nodes)
-    nodes = []
-    node_count = sys_config['edge_nodes']['count']
+    def _load_config(self) -> dict:
+        """Load experiment configuration."""
+        config_file = Path(__file__).parent.parent / self.config_path
+        with open(config_file, 'r') as f:
+            return yaml.safe_load(f)
     
-    for i in range(node_count):
-        energy_source = 'solar' if i < (node_count / 2) else 'grid'
-        node = EdgeNode(
-            node_id=f"node_{i}",
-            power_profile=sys_config['edge_nodes']['power_consumption'],
-            cpu_freqs=sys_config['edge_nodes']['cpu_frequencies'],
-            energy_source_type=energy_source,
-            stake=100
+    def run_all_experiments(self):
+        """Run all baseline comparison experiments."""
+        logger.info("=" * 80)
+        logger.info("STARTING BASELINE COMPARISON EXPERIMENTS")
+        logger.info("=" * 80)
+        
+        methods = [baseline['name'] for baseline in self.config['baselines']]
+        
+        for method in methods:
+            logger.info(f"\n{'=' * 80}")
+            logger.info(f"Running experiment: {method}")
+            logger.info(f"{'=' * 80}")
+            
+            self.results[method] = self._run_single_experiment(method)
+            
+            # Save intermediate results
+            self._save_results(method)
+        
+        # Generate comparison plots and tables
+        self._generate_comparison_plots()
+        self._generate_comparison_tables()
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("BASELINE COMPARISON COMPLETED")
+        logger.info("=" * 80)
+    
+    def _run_single_experiment(self, method: str) -> dict:
+        """Run a single experiment with specified method."""
+        logger.info(f"Initializing NetworkSimulator for method: {method}")
+        
+        # Create simulator with correct parameter names
+        simulator = NetworkSimulator(
+            system_config_path="config/system_config.yaml",
+            experiment_config_path=self.config_path
         )
-        nodes.append(node)
-
-    # 3. Setup Components
-    predictor = RenewablePredictor(sys_config['renewable_energy'])
-    scheduler = EcoScheduler(sys_config, nodes)
-    
-    validators = {node.id: node.stake for node in nodes}
-    verification_layer = VerificationLayer(validators)
-    
-    weather_data = predictor.generate_daily_trace()
-    
-    # 4. Simulation Loop Variables
-    total_energy_grid = 0.0      
-    total_energy_renewable = 0.0 
-    total_tasks_processed = 0
-    qos_violations = 0
-    total_accuracy = 0.0
-    
-    duration = 3600 
-    arrival_rate = 2.0
-    
-    # --- MAIN LOOP ---
-    for t in tqdm(range(duration), desc=f"Simulating {strategy_name}"):
         
-        # A. Update Weather (What is available right now?)
-        current_renewable = {}
-        solar_now = weather_data['solar'][t]
-        wind_now = weather_data['wind'][t]
+        # Run simulation with the specified method
+        logger.info(f"Running simulation with method: {method}")
+        metrics = simulator.run_simulation(method=method)
         
-        for node in nodes:
-            if node.source_type == 'solar':
-                current_renewable[node.id] = solar_now
-            elif node.source_type == 'wind':
-                current_renewable[node.id] = wind_now
+        # Log summary
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Results for {method}:")
+        logger.info(f"  Total Energy: {metrics['total_energy_kwh']:.4f} kWh")
+        logger.info(f"  Carbon Emissions: {metrics['total_carbon_gco2']:.2f} gCO2")
+        logger.info(f"  Avg Latency: {metrics['avg_latency_sec']:.4f} sec")
+        logger.info(f"  Renewable Usage: {metrics['renewable_percent']:.2f}%")
+        logger.info(f"  Operational Cost: ${metrics['operational_cost_usd']:.6f}")
+        logger.info(f"  Carbon Credits Earned: ${metrics['carbon_credits_earned_usd']:.6f}")
+        logger.info(f"  Net Cost: ${metrics['net_cost_usd']:.6f}")
+        logger.info(f"{'=' * 60}\n")
+        
+        return metrics
+    
+    def _save_results(self, method: str):
+        """Save results for a single method."""
+        output_file = self.metrics_dir / f"{method}_metrics.json"
+        
+        with open(output_file, 'w') as f:
+            json.dump(self.results[method], f, indent=2)
+        
+        logger.info(f"Saved metrics to {output_file}")
+    
+    def _generate_comparison_plots(self):
+        """Generate comparison plots for all metrics."""
+        logger.info("Generating comparison plots...")
+        
+        methods = list(self.results.keys())
+        
+        # Plot 1: Energy Consumption Comparison
+        self._plot_energy_comparison(methods)
+        
+        # Plot 2: Carbon Emissions Comparison
+        self._plot_carbon_comparison(methods)
+        
+        # Plot 3: Latency Comparison
+        self._plot_latency_comparison(methods)
+        
+        # Plot 4: Renewable Energy Utilization
+        self._plot_renewable_comparison(methods)
+        
+        # Plot 5: Cost Comparison
+        self._plot_cost_comparison(methods)
+        
+        # Plot 6: Multi-metric radar chart
+        self._plot_radar_chart(methods)
+        
+        logger.info(f"All plots saved to {self.plots_dir}")
+    
+    def _plot_energy_comparison(self, methods: list):
+        """Plot energy consumption comparison."""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        energy_values = [self.results[m]['total_energy_kwh'] for m in methods]
+        renewable_energy = [self.results[m]['renewable_energy_kwh'] for m in methods]
+        grid_energy = [self.results[m]['grid_energy_kwh'] for m in methods]
+        
+        x = np.arange(len(methods))
+        width = 0.35
+        
+        ax.bar(x - width/2, renewable_energy, width, label='Renewable (↑ Higher is Better)', color='#2ecc71')
+        ax.bar(x + width/2, grid_energy, width, label='Grid (↓ Lower is Better)', color='#e74c3c')
+        
+        ax.set_xlabel('Method', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Energy Consumption (kWh)', fontsize=12, fontweight='bold')
+        ax.set_title('Energy Consumption Comparison\n(↑ Higher Renewable & ↓ Lower Grid is Better)', 
+                    fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
+        ax.legend()
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'energy_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_carbon_comparison(self, methods: list):
+        """Plot carbon emissions comparison."""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        carbon_values = [self.results[m]['total_carbon_gco2'] for m in methods]
+        
+        colors = ['#e74c3c', '#f39c12', '#3498db', '#2ecc71']
+        bars = ax.bar(methods, carbon_values, color=colors, alpha=0.8)
+        
+        # Add value labels on bars
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                   f'{height:.2f}',
+                   ha='center', va='bottom', fontweight='bold')
+        
+        ax.set_xlabel('Method', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Carbon Emissions (gCO2)', fontsize=12, fontweight='bold')
+        ax.set_title('Carbon Emissions Comparison\n(↓ Lower is Better)', fontsize=14, fontweight='bold')
+        ax.set_xticks(range(len(methods)))
+        ax.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'carbon_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_latency_comparison(self, methods: list):
+        """Plot latency comparison."""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        avg_latency = [self.results[m]['avg_latency_sec'] for m in methods]
+        max_latency = [self.results[m]['max_latency_sec'] for m in methods]
+        
+        x = np.arange(len(methods))
+        width = 0.35
+        
+        ax.bar(x - width/2, avg_latency, width, label='Average', color='#3498db')
+        ax.bar(x + width/2, max_latency, width, label='Maximum', color='#e74c3c')
+        
+        ax.set_xlabel('Method', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Latency (seconds)', fontsize=12, fontweight='bold')
+        ax.set_title('Latency Comparison\n(↓ Lower is Better)', fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
+        ax.legend()
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'latency_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_renewable_comparison(self, methods: list):
+        """Plot renewable energy utilization comparison."""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        renewable_pct = [self.results[m]['renewable_percent'] for m in methods]
+        
+        colors = ['#e74c3c' if pct < 50 else '#f39c12' if pct < 70 else '#2ecc71' 
+                  for pct in renewable_pct]
+        bars = ax.bar(methods, renewable_pct, color=colors, alpha=0.8)
+        
+        # Add value labels
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                   f'{height:.1f}%',
+                   ha='center', va='bottom', fontweight='bold')
+        
+        ax.set_xlabel('Method', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Renewable Energy Usage (%)', fontsize=12, fontweight='bold')
+        ax.set_title('Renewable Energy Utilization\n(↑ Higher is Better)', fontsize=14, fontweight='bold')
+        ax.set_xticks(range(len(methods)))
+        ax.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
+        ax.set_ylim(0, 110)
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'renewable_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_cost_comparison(self, methods: list):
+        """Plot cost comparison including carbon credits."""
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+        
+        # Left plot: Operational cost breakdown
+        op_costs = [self.results[m]['operational_cost_usd'] for m in methods]
+        carbon_credits = [self.results[m]['carbon_credits_earned_usd'] for m in methods]
+        net_costs = [self.results[m]['net_cost_usd'] for m in methods]
+        
+        x = np.arange(len(methods))
+        width = 0.25
+        
+        bars1 = ax1.bar(x - width, op_costs, width, label='Op. Cost (↓ Lower)', color='#e74c3c', alpha=0.8)
+        bars2 = ax1.bar(x, carbon_credits, width, label='Carbon Credits (↑ Higher)', color='#2ecc71', alpha=0.8)
+        bars3 = ax1.bar(x + width, net_costs, width, label='Net Cost (↓ Lower)', color='#3498db', alpha=0.8)
+        
+        ax1.set_xlabel('Method', fontsize=12, fontweight='bold')
+        ax1.set_ylabel('Cost (USD)', fontsize=12, fontweight='bold')
+        ax1.set_title('Cost Breakdown Comparison\n(↓ Lower Net Cost is Better)', fontsize=14, fontweight='bold')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
+        ax1.legend(fontsize=9)
+        ax1.grid(axis='y', alpha=0.3)
+        
+        # Right plot: Net cost comparison with savings highlighted
+        colors = ['#e74c3c' if nc > 0 else '#2ecc71' for nc in net_costs]
+        bars = ax2.bar(methods, net_costs, color=colors, alpha=0.8)
+        
+        # Add value labels with exact values
+        for bar, nc in zip(bars, net_costs):
+            height = bar.get_height()
+            label = f'${nc:.6f}'
+            va = 'bottom' if nc >= 0 else 'top'
+            ax2.text(bar.get_x() + bar.get_width()/2., height,
+                   label, ha='center', va=va, fontweight='bold', fontsize=9)
+        
+        ax2.set_xlabel('Method', fontsize=12, fontweight='bold')
+        ax2.set_ylabel('Net Cost (USD)', fontsize=12, fontweight='bold')
+        ax2.set_title('Net Cost After Carbon Credits\n(↓ Lower/Negative is Better = Profit!)', 
+                     fontsize=14, fontweight='bold')
+        ax2.set_xticks(range(len(methods)))
+        ax2.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
+        ax2.axhline(y=0, color='black', linestyle='--', linewidth=1)
+        ax2.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'cost_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_radar_chart(self, methods: list):
+        """Plot multi-metric radar chart."""
+        # Normalize metrics to 0-100 scale
+        metrics_to_plot = ['energy', 'carbon', 'latency', 'renewable', 'cost']
+        
+        # Get baseline values for normalization
+        baseline = self.results['standard']
+        
+        fig, ax = plt.subplots(figsize=(12, 10), subplot_kw=dict(projection='polar'))
+        
+        angles = np.linspace(0, 2 * np.pi, len(metrics_to_plot), endpoint=False).tolist()
+        angles += angles[:1]
+        
+        # Define distinct colors and styles for each method
+        method_styles = {
+            'standard': {'color': '#e74c3c', 'linestyle': '-', 'linewidth': 2.5, 'marker': 'o', 'markersize': 8},
+            'energy_aware_only': {'color': '#3498db', 'linestyle': '--', 'linewidth': 3, 'marker': 's', 'markersize': 10},
+            'blockchain_only': {'color': '#f39c12', 'linestyle': '-.', 'linewidth': 2.5, 'marker': '^', 'markersize': 8},
+            'ecochain_ml': {'color': '#2ecc71', 'linestyle': '-', 'linewidth': 3.5, 'marker': 'D', 'markersize': 10}
+        }
+        
+        # Default style for any other methods
+        default_style = {'color': '#9b59b6', 'linestyle': '-', 'linewidth': 2, 'marker': 'o', 'markersize': 6}
+        
+        for method in methods:
+            values = []
+            result = self.results[method]
+            style = method_styles.get(method, default_style)
+            
+            # Energy (lower is better, so invert)
+            if baseline['total_energy_kwh'] > 0:
+                energy_score = (1 - result['total_energy_kwh'] / baseline['total_energy_kwh']) * 100
             else:
-                current_renewable[node.id] = 0.0
-
-        # B. Generate Traffic (Poisson Distribution)
-        if random.random() < arrival_rate:
+                energy_score = 0
+            values.append(max(0, min(100, 50 + energy_score)))
             
-            model_template = random.choice(sys_config['ml_models'])
+            # Carbon (lower is better, so invert)
+            if baseline['total_carbon_gco2'] > 0:
+                carbon_score = (1 - result['total_carbon_gco2'] / baseline['total_carbon_gco2']) * 100
+            else:
+                carbon_score = 0
+            values.append(max(0, min(100, 50 + carbon_score)))
             
-            task = {
-                'id': f"task_{t}",
-                'ops': float(model_template['ops']),
-                'size_mb': model_template['size_mb'],
-                'deadline': 1.0, 
-                'model_name': model_template['name']
-            }
+            # Latency (lower is better, so invert)
+            if baseline['avg_latency_sec'] > 0:
+                latency_score = (1 - result['avg_latency_sec'] / baseline['avg_latency_sec']) * 100
+            else:
+                latency_score = 0
+            values.append(max(0, min(100, 50 + latency_score)))
             
-            # C. Scheduler Decision
-            best_config = None
-            selected_node = None
+            # Renewable (higher is better)
+            renewable_score = result['renewable_percent']
+            values.append(renewable_score)
             
-            if strategy_name == "EcoChain":
-                # Use our smart algorithm (passes current_renewable dict)
-                best_config = scheduler.select_best_node(task, current_renewable)
-                selected_node = best_config['node']
-                
-            elif strategy_name == "RoundRobin":
-                # Simple cycle: 0, 1, 2, ...
-                idx = total_tasks_processed % len(nodes)
-                selected_node = nodes[idx]
-                
-                # For Round Robin, assume MAX power/MAX speed (worst case baseline)
-                max_freq = max(selected_node.cpu_freqs)
-                latency = task['ops'] / selected_node.get_max_ops()
-                power = selected_node.power_profile['max']
-                accuracy = model_template['accuracy']
-                
-                # Format the output to match best_config structure for easy processing
-                best_config = {
-                    'latency': latency, 
-                    'power': power, 
-                    'accuracy': accuracy, 
-                    'quant_bits': 32, 
-                    'frequency': max_freq, 
-                    'node': selected_node
-                }
-
-            # D. Execute Task & Record Stats & Submit Proof
-            if selected_node and best_config: # Ensure we have both node and config
-                # 1. Extract Optimal Parameters
-                latency = best_config['latency']
-                power = best_config['power'] 
-                accuracy = best_config['accuracy']
-                
-                # 2. Calculate Energy
-                energy_needed = power * latency # Joules
-                
-                # 3. Accounting (Renewable vs Grid)
-                # THIS IS THE CRITICAL LINE: It now correctly pulls the available power
-                available_power_renewable = current_renewable.get(selected_node.id, 0.0)
-                max_renewable_covered_joules = available_power_renewable * latency
-                
-                covered_by_green = min(energy_needed, max_renewable_covered_joules)
-                from_grid = energy_needed - covered_by_green
-                
-                total_energy_renewable += covered_by_green
-                total_energy_grid += from_grid
-
-                # 4. Check QoS and Metrics
-                if latency > task['deadline']:
-                    qos_violations += 1
-                
-                total_tasks_processed += 1
-                total_accuracy += accuracy
-
-                # 5. Create and Submit Proof-of-Inference (Verification)
-                proof = ProofOfInference(
-                    task_id=task['id'],
-                    node_id=selected_node.id,
-                    energy_consumed=energy_needed,
-                    renewable_used=covered_by_green,
-                    model_accuracy=accuracy, 
-                    timestamp=t
-                )
-                
-                if strategy_name == "EcoChain":
-                    verification_layer.submit_proof(proof)
-
-    # 5. Return Results
-    avg_accuracy = total_accuracy / total_tasks_processed if total_tasks_processed > 0 else 0.0
-    
-    return {
-        "strategy": strategy_name,
-        "total_tasks": total_tasks_processed,
-        "grid_energy_joules": total_energy_grid,
-        "renewable_energy_joules": total_energy_renewable,
-        "qos_violations": qos_violations,
-        "avg_accuracy": avg_accuracy, # NEW METRIC
+            # Cost (lower is better, so invert)
+            if baseline['operational_cost_usd'] > 0:
+                cost_score = (1 - result['operational_cost_usd'] / baseline['operational_cost_usd']) * 100
+            else:
+                cost_score = 0
+            values.append(max(0, min(100, 50 + cost_score)))
+            
+            values += values[:1]
+            
+            # Plot with distinct style
+            ax.plot(angles, values, 
+                   linestyle=style['linestyle'],
+                   linewidth=style['linewidth'], 
+                   color=style['color'],
+                   marker=style['marker'],
+                   markersize=style['markersize'],
+                   label=method.replace('_', ' ').title(),
+                   zorder=3 if method == 'energy_aware_only' else 2)
+            ax.fill(angles, values, alpha=0.1, color=style['color'])
         
-        "chain_length": len(verification_layer.chain) if strategy_name == "EcoChain" else 0,
-        "pending_proofs": len(verification_layer.pending_transactions) if strategy_name == "EcoChain" else 0
-    }
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(['Energy\n(↓ Lower)', 'Carbon\n(↓ Lower)', 'Latency\n(↓ Lower)', 
+                           'Renewable\n(↑ Higher)', 'Cost\n(↓ Lower)'], fontsize=11, fontweight='bold')
+        ax.set_ylim(0, 100)
+        ax.set_title('Multi-Metric Performance Comparison\n(Larger Area = Better Overall Performance)', 
+                     fontsize=14, fontweight='bold', pad=20)
+        ax.legend(loc='upper right', bbox_to_anchor=(1.35, 1.1), fontsize=11)
+        ax.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'radar_comparison.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _generate_comparison_tables(self):
+        """Generate comparison tables."""
+        logger.info("Generating comparison tables...")
+        
+        # Create comprehensive comparison table
+        table_data = []
+        
+        for method in self.results.keys():
+            result = self.results[method]
+            table_data.append({
+                'Method': method.replace('_', ' ').title(),
+                'Energy (kWh)': f"{result['total_energy_kwh']:.4f}",
+                'Carbon (gCO2)': f"{result['total_carbon_gco2']:.2f}",
+                'Avg Latency (s)': f"{result['avg_latency_sec']:.4f}",
+                'Renewable (%)': f"{result['renewable_percent']:.2f}",
+                'Op. Cost ($)': f"${result['operational_cost_usd']:.6f}",
+                'Carbon Credits ($)': f"${result['carbon_credits_earned_usd']:.6f}",
+                'Net Cost ($)': f"${result['net_cost_usd']:.6f}",
+                'Tasks': result['tasks_completed']
+            })
+        
+        df = pd.DataFrame(table_data)
+        
+        # Save as CSV
+        csv_file = self.metrics_dir / 'comparison_table.csv'
+        df.to_csv(csv_file, index=False)
+        logger.info(f"Saved comparison table to {csv_file}")
+        
+        # Save as LaTeX table
+        latex_file = self.metrics_dir / 'comparison_table.tex'
+        latex_table = df.to_latex(index=False, escape=False)
+        with open(latex_file, 'w', encoding='utf-8') as f:
+            f.write(latex_table)
+        logger.info(f"Saved LaTeX table to {latex_file}")
+        
+        # Calculate improvement percentages relative to baseline
+        baseline = self.results['standard']
+        improvement_data = []
+        
+        for method in self.results.keys():
+            if method == 'standard':
+                continue
+            
+            result = self.results[method]
+            
+            # Calculate net cost improvement (considering carbon credits)
+            baseline_net = baseline['operational_cost_usd']  # No credits for baseline
+            result_net = result['net_cost_usd']
+            net_cost_reduction = ((baseline_net - result_net) / baseline_net * 100) if baseline_net > 0 else 0
+            
+            improvement_data.append({
+                'Method': method.replace('_', ' ').title(),
+                'Energy Reduction (%)': f"{((baseline['total_energy_kwh'] - result['total_energy_kwh']) / baseline['total_energy_kwh'] * 100):.2f}",
+                'Carbon Reduction (%)': f"{((baseline['total_carbon_gco2'] - result['total_carbon_gco2']) / baseline['total_carbon_gco2'] * 100):.2f}",
+                'Latency Change (%)': f"{((result['avg_latency_sec'] - baseline['avg_latency_sec']) / baseline['avg_latency_sec'] * 100):+.2f}",
+                'Renewable Increase (%)': f"{(result['renewable_percent'] - baseline['renewable_percent']):+.2f}",
+                'Carbon Credits ($)': f"${result['carbon_credits_earned_usd']:.4f}",
+                'Net Cost Reduction (%)': f"{net_cost_reduction:.2f}"
+            })
+        
+        df_improvement = pd.DataFrame(improvement_data)
+        
+        # Save improvement table
+        improvement_csv = self.metrics_dir / 'improvement_table.csv'
+        df_improvement.to_csv(improvement_csv, index=False)
+        logger.info(f"Saved improvement table to {improvement_csv}")
+        
+        # Save as LaTeX
+        improvement_latex = self.metrics_dir / 'improvement_table.tex'
+        latex_improvement = df_improvement.to_latex(index=False, escape=False)
+        with open(improvement_latex, 'w', encoding='utf-8') as f:
+            f.write(latex_improvement)
+        logger.info(f"Saved improvement LaTeX table to {improvement_latex}")
 
-# --- RUN COMPARISON ---
+
+def main():
+    """Main execution function."""
+    print("\n" + "=" * 80)
+    print("EcoChain-ML Baseline Comparison Experiment")
+    print("=" * 80 + "\n")
+    
+    # Create and run comparison
+    comparison = BaselineComparison()
+    comparison.run_all_experiments()
+    
+    print("\n" + "=" * 80)
+    print("EXPERIMENT COMPLETED SUCCESSFULLY!")
+    print(f"Results saved to: {comparison.results_dir}")
+    print(f"Plots saved to: {comparison.plots_dir}")
+    print(f"Metrics saved to: {comparison.metrics_dir}")
+    print("=" * 80 + "\n")
+
+
 if __name__ == "__main__":
-    
-    results_rr = run_simulation("RoundRobin")
-    results_eco = run_simulation("EcoChain")
-    
-    print("\n" + "="*55)
-    print("           FINAL RESULTS (1 Hour Simulation)          ")
-    print("="*55)
-    
-    print(f"{'Metric':<30} | {'Round Robin':<15} | {'EcoChain (Yours)':<15}")
-    print("-" * 65)
-    
-    print(f"{'Grid Energy (Joules)':<30} | {results_rr['grid_energy_joules']:.2f} | {results_eco['grid_energy_joules']:.2f}")
-    print(f"{'Renewable Used (Joules)':<30} | {results_rr['renewable_energy_joules']:.2f} | {results_eco['renewable_energy_joules']:.2f}")
-    print(f"{'QoS Violations (Latency)':<30} | {results_rr['qos_violations']:<15} | {results_eco['qos_violations']:<15}")
-    
-    # We still need to add the AVG ACCURACY printing logic to the bottom of this script, 
-    # as it's not in the output you provided, but the metric is calculated.
-    print(f"{'Avg Model Accuracy':<30} | {results_rr.get('avg_accuracy', 0.0):.4f} | {results_eco.get('avg_accuracy', 0.0):.4f}")
-    
-    print("-" * 65)
-    print(f"{'Chain Length (Blocks)':<30} | {results_rr['chain_length']:<15} | {results_eco['chain_length']:<15}")
-    
-    # --- PLOTTING --- (Plotting logic omitted for brevity, but should be kept in your file)
-    # ...
-    
-    print("\n✅ Plot saved to results/plots/energy_comparison.png")
+    main()

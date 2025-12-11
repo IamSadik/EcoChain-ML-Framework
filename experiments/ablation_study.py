@@ -1,0 +1,452 @@
+"""
+Ablation Study for EcoChain-ML Framework
+
+This script performs ablation studies by removing one component at a time:
+1. Full EcoChain-ML (all components)
+2. Without Renewable Prediction
+3. Without DVFS
+4. Without Model Compression
+5. Without Blockchain Verification
+
+Purpose: Understand the contribution of each component to overall performance.
+"""
+
+import sys
+import os
+import logging
+import yaml
+import json
+import random
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from datetime import datetime
+
+# Set random seeds for reproducibility
+RANDOM_SEED = 42
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
+
+# Add parent directory to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.simulator import NetworkSimulator
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class AblationStudy:
+    """Conducts ablation study experiments."""
+    
+    def __init__(self, config_path: str = "config/experiment_config.yaml"):
+        """Initialize ablation study."""
+        self.config_path = config_path
+        self.config = self._load_config()
+        self.results = {}
+        
+        # Create results directories
+        self.results_dir = Path("results/ablation_study")
+        self.results_dir.mkdir(parents=True, exist_ok=True)
+        self.plots_dir = self.results_dir / "plots"
+        self.plots_dir.mkdir(exist_ok=True)
+        self.metrics_dir = self.results_dir / "metrics"
+        self.metrics_dir.mkdir(exist_ok=True)
+        
+        logger.info(f"Initialized ablation study with config: {config_path}")
+    
+    def _load_config(self) -> dict:
+        """Load experiment configuration."""
+        config_file = Path(__file__).parent.parent / self.config_path
+        with open(config_file, 'r') as f:
+            return yaml.safe_load(f)
+    
+    def run_all_ablations(self):
+        """Run all ablation experiments."""
+        logger.info("=" * 80)
+        logger.info("STARTING ABLATION STUDY EXPERIMENTS")
+        logger.info("=" * 80)
+        
+        # Reset random seed once at the start to ensure consistent workload
+        random.seed(RANDOM_SEED)
+        np.random.seed(RANDOM_SEED)
+        
+        # Generate a single workload to be used across all ablation runs
+        # This ensures fair comparison between configurations
+        base_simulator = NetworkSimulator(
+            system_config_path="config/system_config.yaml",
+            experiment_config_path=self.config_path
+        )
+        base_simulator.generate_workload()
+        self.shared_workload = base_simulator.tasks_generated
+        logger.info(f"Generated shared workload with {len(self.shared_workload)} tasks for all ablations")
+        
+        ablation_configs = [
+            ('full_ecochain_ml', {'renewable_prediction': True, 'dvfs': True, 
+                                  'model_compression': True, 'blockchain': True}),
+            ('without_renewable_prediction', {'renewable_prediction': False, 'dvfs': True,
+                                             'model_compression': True, 'blockchain': True}),
+            ('without_dvfs', {'renewable_prediction': True, 'dvfs': False,
+                             'model_compression': True, 'blockchain': True}),
+            ('without_compression', {'renewable_prediction': True, 'dvfs': True,
+                                    'model_compression': False, 'blockchain': True}),
+            ('without_blockchain', {'renewable_prediction': True, 'dvfs': True,
+                                   'model_compression': True, 'blockchain': False})
+        ]
+        
+        for config_name, config_params in ablation_configs:
+            logger.info(f"\n{'=' * 80}")
+            logger.info(f"Running ablation: {config_name}")
+            logger.info(f"Configuration: {config_params}")
+            logger.info(f"{'=' * 80}")
+            
+            self.results[config_name] = self._run_ablation_experiment(config_name, config_params)
+            
+            # Save intermediate results
+            self._save_results(config_name)
+        
+        # Generate comparison plots and tables
+        self._generate_ablation_plots()
+        self._generate_ablation_tables()
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("ABLATION STUDY COMPLETED")
+        logger.info("=" * 80)
+    
+    def _run_ablation_experiment(self, config_name: str, config_params: dict) -> dict:
+        """Run a single ablation experiment with true component control."""
+        logger.info(f"Initializing NetworkSimulator for ablation: {config_name}")
+        
+        # Create simulator
+        simulator = NetworkSimulator(
+            system_config_path="config/system_config.yaml",
+            experiment_config_path=self.config_path
+        )
+        
+        # Use the shared workload instead of generating a new one
+        simulator.tasks_generated = self.shared_workload
+        
+        # Use the new run_ablation method for true component control
+        logger.info(f"Running ablation with config: {config_params}")
+        metrics = simulator.run_ablation(config_name, config_params)
+        
+        # Log summary
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Results for {config_name}:")
+        logger.info(f"  Total Energy: {metrics['total_energy_kwh']:.6f} kWh")
+        logger.info(f"  Carbon Emissions: {metrics['total_carbon_gco2']:.4f} gCO2")
+        logger.info(f"  Avg Latency: {metrics['avg_latency_sec']:.4f} sec")
+        logger.info(f"  Renewable Usage: {metrics['renewable_percent']:.2f}%")
+        logger.info(f"  Operational Cost: ${metrics['operational_cost_usd']:.6f}")
+        logger.info(f"{'=' * 60}\n")
+        
+        return metrics
+    
+    def _save_results(self, config_name: str):
+        """Save results for a single ablation configuration."""
+        output_file = self.metrics_dir / f"{config_name}_metrics.json"
+        
+        with open(output_file, 'w') as f:
+            json.dump(self.results[config_name], f, indent=2)
+        
+        logger.info(f"Saved metrics to {output_file}")
+    
+    def _generate_ablation_plots(self):
+        """Generate ablation study plots."""
+        logger.info("Generating ablation study plots...")
+        
+        configs = list(self.results.keys())
+        
+        # Plot 1: Component contribution to energy savings
+        self._plot_component_contribution(configs)
+        
+        # Plot 2: Multi-metric heatmap
+        self._plot_heatmap(configs)
+        
+        # Plot 3: Stacked bar chart showing impact
+        self._plot_stacked_impact(configs)
+        
+        # Plot 4: Line plot showing degradation
+        self._plot_degradation_line(configs)
+        
+        logger.info(f"All ablation plots saved to {self.plots_dir}")
+    
+    def _plot_component_contribution(self, configs: list):
+        """Plot component contribution to performance."""
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+        
+        full_config = 'full_ecochain_ml'
+        full_result = self.results[full_config]
+        
+        # Energy contribution
+        energy_increase = [(self.results[c]['total_energy_kwh'] - full_result['total_energy_kwh']) / 
+                          full_result['total_energy_kwh'] * 100 for c in configs]
+        
+        colors1 = ['#2ecc71' if x <= 0 else '#e74c3c' for x in energy_increase]
+        ax1.barh(range(len(configs)), energy_increase, color=colors1, alpha=0.7)
+        ax1.set_yticks(range(len(configs)))
+        ax1.set_yticklabels([c.replace('_', ' ').title() for c in configs], fontsize=9)
+        ax1.set_xlabel('Energy Change (%)', fontweight='bold')
+        ax1.set_title('Impact on Energy Consumption\n(↓ Negative/Lower is Better)', fontweight='bold')
+        ax1.grid(axis='x', alpha=0.3)
+        ax1.axvline(x=0, color='black', linestyle='--', linewidth=1)
+        
+        # Carbon contribution
+        carbon_increase = [(self.results[c]['total_carbon_gco2'] - full_result['total_carbon_gco2']) / 
+                          full_result['total_carbon_gco2'] * 100 for c in configs]
+        
+        colors2 = ['#2ecc71' if x <= 0 else '#e74c3c' for x in carbon_increase]
+        ax2.barh(range(len(configs)), carbon_increase, color=colors2, alpha=0.7)
+        ax2.set_yticks(range(len(configs)))
+        ax2.set_yticklabels([c.replace('_', ' ').title() for c in configs], fontsize=9)
+        ax2.set_xlabel('Carbon Change (%)', fontweight='bold')
+        ax2.set_title('Impact on Carbon Emissions\n(↓ Negative/Lower is Better)', fontweight='bold')
+        ax2.grid(axis='x', alpha=0.3)
+        ax2.axvline(x=0, color='black', linestyle='--', linewidth=1)
+        
+        # Latency contribution
+        latency_increase = [(self.results[c]['avg_latency_sec'] - full_result['avg_latency_sec']) / 
+                           full_result['avg_latency_sec'] * 100 for c in configs]
+        
+        colors3 = ['#2ecc71' if x <= 0 else '#e74c3c' for x in latency_increase]
+        ax3.barh(range(len(configs)), latency_increase, color=colors3, alpha=0.7)
+        ax3.set_yticks(range(len(configs)))
+        ax3.set_yticklabels([c.replace('_', ' ').title() for c in configs], fontsize=9)
+        ax3.set_xlabel('Latency Change (%)', fontweight='bold')
+        ax3.set_title('Impact on Latency\n(↓ Negative/Lower is Better)', fontweight='bold')
+        ax3.grid(axis='x', alpha=0.3)
+        ax3.axvline(x=0, color='black', linestyle='--', linewidth=1)
+        
+        # Renewable contribution (higher is better, so show increase as positive)
+        renewable_change = [self.results[c]['renewable_percent'] - full_result['renewable_percent'] 
+                           for c in configs]
+        
+        colors4 = ['#2ecc71' if x >= 0 else '#e74c3c' for x in renewable_change]
+        ax4.barh(range(len(configs)), renewable_change, color=colors4, alpha=0.7)
+        ax4.set_yticks(range(len(configs)))
+        ax4.set_yticklabels([c.replace('_', ' ').title() for c in configs], fontsize=9)
+        ax4.set_xlabel('Renewable Usage Change (%)', fontweight='bold')
+        ax4.set_title('Impact on Renewable Utilization\n(↑ Positive/Higher is Better)', fontweight='bold')
+        ax4.grid(axis='x', alpha=0.3)
+        ax4.axvline(x=0, color='black', linestyle='--', linewidth=1)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'component_contribution.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_heatmap(self, configs: list):
+        """Plot heatmap of normalized metrics."""
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Note: For heatmap, lower is better for Energy, Carbon, Latency, Cost
+        # Higher is better for Renewable - we'll invert renewable for consistent coloring
+        metrics = ['Energy\n(↓ Lower)', 'Carbon\n(↓ Lower)', 'Latency\n(↓ Lower)', 
+                   'Renewable\n(↑ Higher)', 'Cost\n(↓ Lower)']
+        
+        # Create data matrix
+        data = []
+        for config in configs:
+            result = self.results[config]
+            row = [
+                result['total_energy_kwh'],
+                result['total_carbon_gco2'],
+                result['avg_latency_sec'],
+                100 - result['renewable_percent'],  # Invert so lower = better (for coloring)
+                result['operational_cost_usd']
+            ]
+            data.append(row)
+        
+        data = np.array(data)
+        
+        # Normalize each column to 0-1
+        data_normalized = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0) + 1e-10)
+        
+        im = ax.imshow(data_normalized, cmap='RdYlGn_r', aspect='auto')
+        
+        # Set ticks
+        ax.set_xticks(np.arange(len(metrics)))
+        ax.set_yticks(np.arange(len(configs)))
+        ax.set_xticklabels(metrics)
+        ax.set_yticklabels([c.replace('_', '\n').title() for c in configs])
+        
+        # Rotate x labels
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+        
+        # Add colorbar
+        cbar = plt.colorbar(im, ax=ax)
+        cbar.set_label('Normalized (Green=Best, Red=Worst)', rotation=270, labelpad=20)
+        
+        # Add text annotations with original values
+        original_data = []
+        for config in configs:
+            result = self.results[config]
+            row = [
+                result['total_energy_kwh'],
+                result['total_carbon_gco2'],
+                result['avg_latency_sec'],
+                result['renewable_percent'],  # Show actual value
+                result['operational_cost_usd']
+            ]
+            original_data.append(row)
+        original_data = np.array(original_data)
+        
+        for i in range(len(configs)):
+            for j in range(len(metrics)):
+                if j == 4:  # Cost column - show more decimals
+                    text = ax.text(j, i, f'{original_data[i, j]:.6f}',
+                                 ha="center", va="center", color="black", fontsize=8)
+                else:
+                    text = ax.text(j, i, f'{original_data[i, j]:.2f}',
+                                 ha="center", va="center", color="black", fontsize=8)
+        
+        ax.set_title('Ablation Study Heatmap\n(Green = Best Performance)', 
+                    fontsize=14, fontweight='bold', pad=20)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'ablation_heatmap.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_stacked_impact(self, configs: list):
+        """Plot stacked bar chart showing cumulative impact."""
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        full_config = 'full_ecochain_ml'
+        full_result = self.results[full_config]
+        
+        # Calculate percentage changes relative to full system
+        energy_pct = [(self.results[c]['total_energy_kwh'] / full_result['total_energy_kwh'] - 1) * 100 
+                      for c in configs]
+        carbon_pct = [(self.results[c]['total_carbon_gco2'] / full_result['total_carbon_gco2'] - 1) * 100 
+                      for c in configs]
+        
+        x = np.arange(len(configs))
+        width = 0.35
+        
+        ax.bar(x - width/2, energy_pct, width, label='Energy Change (↓ Lower is Better)', color='#e74c3c', alpha=0.8)
+        ax.bar(x + width/2, carbon_pct, width, label='Carbon Change (↓ Lower is Better)', color='#3498db', alpha=0.8)
+        
+        ax.set_ylabel('Change Relative to Full System (%)', fontweight='bold')
+        ax.set_title('Performance Impact When Removing Components\n(↓ Bars Below Zero = Better Than Full System)', 
+                    fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels([c.replace('_', '\n').title() for c in configs], fontsize=9)
+        ax.legend()
+        ax.axhline(y=0, color='black', linestyle='--', linewidth=1)
+        ax.grid(axis='y', alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'stacked_impact.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_degradation_line(self, configs: list):
+        """Plot line chart showing performance degradation."""
+        fig, ax = plt.subplots(figsize=(12, 6))
+        
+        full_config = 'full_ecochain_ml'
+        full_result = self.results[full_config]
+        
+        # Metrics to plot - normalized to 100% = full system
+        metrics_data = {
+            'Energy (↓ Lower is Better)': [self.results[c]['total_energy_kwh'] / full_result['total_energy_kwh'] * 100 
+                      for c in configs],
+            'Carbon (↓ Lower is Better)': [self.results[c]['total_carbon_gco2'] / full_result['total_carbon_gco2'] * 100 
+                      for c in configs],
+            'Renewable (↑ Higher is Better)': [self.results[c]['renewable_percent'] / full_result['renewable_percent'] * 100 
+                         for c in configs]
+        }
+        
+        x = np.arange(len(configs))
+        colors = ['#e74c3c', '#3498db', '#2ecc71']
+        
+        for (metric_name, values), color in zip(metrics_data.items(), colors):
+            ax.plot(x, values, marker='o', linewidth=2, label=metric_name, markersize=8, color=color)
+        
+        ax.set_xlabel('Configuration', fontweight='bold')
+        ax.set_ylabel('Percentage of Full System Value (%)', fontweight='bold')
+        ax.set_title('Metric Comparison Across Ablation Configurations\n(100% = Full EcoChain-ML System)', 
+                    fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels([c.replace('_', '\n').title() for c in configs], fontsize=9)
+        ax.axhline(y=100, color='black', linestyle='--', linewidth=1, label='Full System Baseline (100%)')
+        ax.legend(loc='best', fontsize=9)
+        ax.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig(self.plots_dir / 'degradation_line.png', dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _generate_ablation_tables(self):
+        """Generate ablation study tables."""
+        logger.info("Generating ablation study tables...")
+        
+        # Create comprehensive ablation table
+        table_data = []
+        
+        full_config = 'full_ecochain_ml'
+        full_result = self.results[full_config]
+        
+        for config in self.results.keys():
+            result = self.results[config]
+            
+            # Calculate relative changes
+            energy_change = ((result['total_energy_kwh'] - full_result['total_energy_kwh']) / 
+                           full_result['total_energy_kwh'] * 100)
+            carbon_change = ((result['total_carbon_gco2'] - full_result['total_carbon_gco2']) / 
+                           full_result['total_carbon_gco2'] * 100)
+            latency_change = ((result['avg_latency_sec'] - full_result['avg_latency_sec']) / 
+                            full_result['avg_latency_sec'] * 100)
+            renewable_change = result['renewable_percent'] - full_result['renewable_percent']
+            
+            table_data.append({
+                'Configuration': config.replace('_', ' ').title(),
+                'Energy (kWh)': f"{result['total_energy_kwh']:.6f}",
+                'Energy Δ (%)': f"{energy_change:+.2f}",
+                'Carbon (gCO2)': f"{result['total_carbon_gco2']:.4f}",
+                'Carbon Δ (%)': f"{carbon_change:+.2f}",
+                'Latency (s)': f"{result['avg_latency_sec']:.4f}",
+                'Latency Δ (%)': f"{latency_change:+.2f}",
+                'Renewable (%)': f"{result['renewable_percent']:.2f}",
+                'Renewable Δ (%)': f"{renewable_change:+.2f}",
+                'Cost ($)': f"{result['operational_cost_usd']:.6f}"
+            })
+        
+        df = pd.DataFrame(table_data)
+        
+        # Save as CSV
+        csv_file = self.metrics_dir / 'ablation_table.csv'
+        df.to_csv(csv_file, index=False)
+        logger.info(f"Saved ablation table to {csv_file}")
+        
+        # Save as LaTeX
+        latex_file = self.metrics_dir / 'ablation_table.tex'
+        latex_table = df.to_latex(index=False, escape=False)
+        with open(latex_file, 'w', encoding='utf-8') as f:
+            f.write(latex_table)
+        logger.info(f"Saved LaTeX table to {latex_file}")
+
+
+def main():
+    """Main execution function."""
+    print("\n" + "=" * 80)
+    print("EcoChain-ML Ablation Study Experiment")
+    print("=" * 80 + "\n")
+    
+    # Create and run ablation study
+    ablation = AblationStudy()
+    ablation.run_all_ablations()
+    
+    print("\n" + "=" * 80)
+    print("ABLATION STUDY COMPLETED SUCCESSFULLY!")
+    print(f"Results saved to: {ablation.results_dir}")
+    print(f"Plots saved to: {ablation.plots_dir}")
+    print(f"Metrics saved to: {ablation.metrics_dir}")
+    print("=" * 80 + "\n")
+
+
+if __name__ == "__main__":
+    main()
