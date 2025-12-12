@@ -163,6 +163,8 @@ EcoChain-ML-Framework/
 ```bash
 # Clone the repository
 git clone https://github.com/IamSadik/EcoChain-ML-Framework.git
+
+# Navigate to project directory
 cd EcoChain-ML-Framework
 
 # Create virtual environment
@@ -368,7 +370,7 @@ Frequency selection based on renewable availability:
 - **Quantization:** INT8 dynamic (4x compression, 30-40% energy savings)
 - **Pruning:** Magnitude-based L1 (30% sparsity)
 
----
+
 
 ### 5. Future Work
 
