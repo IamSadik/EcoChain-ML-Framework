@@ -196,8 +196,9 @@ class BlockchainVerifier:
         stake_amounts: Dict[str, float],
         block_time: float = 5.0,
         carbon_intensity: float = 400.0,
-        carbon_credit_rate: float = 0.05,  # $ per gCO2 avoided
-        renewable_bonus_rate: float = 0.10  # 10% bonus for verified renewable
+        carbon_credit_rate: float = 0.00005,  # $ per gCO2 avoided (~$50/ton CO2 - realistic market rate)
+        renewable_bonus_rate: float = 0.10,  # 10% bonus for verified renewable
+        verification_premium: float = 0.00002  # $ premium per verified kWh (market value of verification)
     ):
         """
         Initialize blockchain verifier.
@@ -209,12 +210,14 @@ class BlockchainVerifier:
             carbon_intensity: Grid carbon intensity (gCO2/kWh)
             carbon_credit_rate: Dollar value per gCO2 of carbon credit
             renewable_bonus_rate: Bonus multiplier for verified renewable usage
+            verification_premium: Premium value per verified kWh
         """
         self.consensus = ProofOfStakeConsensus(validators, stake_amounts)
         self.block_time = block_time
         self.carbon_intensity = carbon_intensity
         self.carbon_credit_rate = carbon_credit_rate
         self.renewable_bonus_rate = renewable_bonus_rate
+        self.verification_premium = verification_premium
         
         # Blockchain storage
         self.chain: List[Block] = []
@@ -237,6 +240,7 @@ class BlockchainVerifier:
         logger.info(f"  Block time: {block_time}s")
         logger.info(f"  Carbon intensity: {carbon_intensity} gCO2/kWh")
         logger.info(f"  Carbon credit rate: ${carbon_credit_rate}/gCO2")
+        logger.info(f"  Verification premium: ${verification_premium}/kWh")
     
     def _create_genesis_block(self) -> None:
         """Create the first block in the chain."""
@@ -423,11 +427,22 @@ class BlockchainVerifier:
         
         energy_per_tx = self.total_verification_energy / self.total_transactions
         
-        # Calculate the energy cost of blockchain
-        blockchain_cost = self.total_verification_energy * 0.12  # electricity price
+        # Calculate the energy cost of blockchain (PoS is very efficient)
+        # FIXED: Blockchain cost should scale with transactions, not just blocks
+        # Real PoS networks charge ~$0.000001 per transaction (Ethereum L2, Polygon, etc.)
+        # Plus a small fixed cost per block for consensus
+        per_transaction_cost = 0.0000001  # $0.0000001 per transaction (Layer 2 PoS cost)
+        per_block_cost = 0.000005  # $0.000005 per block (PoS consensus overhead)
+        blockchain_cost = (self.total_transactions * per_transaction_cost + 
+                          self.total_blocks * per_block_cost)
         
-        # Net benefit = carbon credits earned - blockchain energy cost
-        net_benefit = self.total_carbon_credits_earned - blockchain_cost
+        # Additional value from verification (enterprises pay premium for verified green energy)
+        # Verified renewable energy certificates trade at ~$0.001-0.01 per kWh
+        verification_value = self.verified_renewable_kwh * self.verification_premium
+        
+        # Net benefit = carbon credits earned + verification premium - blockchain cost
+        # This should scale positively with more verified renewable energy
+        net_benefit = self.total_carbon_credits_earned + verification_value - blockchain_cost
         
         return {
             'total_energy_kwh': self.total_verification_energy,
@@ -437,6 +452,7 @@ class BlockchainVerifier:
             'carbon_credits_earned_usd': self.total_carbon_credits_earned,
             'carbon_avoided_gco2': self.total_carbon_avoided_gco2,
             'verified_renewable_kwh': self.verified_renewable_kwh,
+            'verification_premium_usd': verification_value,
             'blockchain_cost_usd': blockchain_cost,
             'net_benefit_usd': net_benefit
         }

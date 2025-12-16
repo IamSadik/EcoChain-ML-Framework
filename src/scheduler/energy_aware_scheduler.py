@@ -189,6 +189,7 @@ class EnergyAwareScheduler:
         - QoS: Lower latency is better
         - Energy: Lower energy consumption is better
         - Renewable: Higher renewable percentage is better
+        - Load balancing: More important with more nodes to ensure realistic distribution
         
         Args:
             node: EdgeNode object
@@ -215,17 +216,49 @@ class EnergyAwareScheduler:
         # Higher renewable percentage = better
         renewable_score = renewable_pct / 100.0
         
-        # 4. Load balancing bonus
-        # Prefer less loaded nodes
-        load_factor = node.tasks_completed / (max(n.tasks_completed for n in self.nodes) + 1)
-        load_bonus = 1.0 - load_factor
+        # 4. Load balancing factor - CRITICAL for realistic scaling behavior
+        # With more nodes, we MUST distribute load more evenly to simulate
+        # real-world constraints (network locality, node availability, etc.)
+        max_tasks = max((n.tasks_completed for n in self.nodes), default=1) + 1
+        load_factor = node.tasks_completed / max_tasks
         
-        # Combine scores with weights
+        # Scale load balancing importance with number of nodes
+        # More nodes = stronger load balancing to prevent unrealistic node avoidance
+        num_nodes = len(self.nodes)
+        if num_nodes <= 4:
+            load_weight = 0.1  # Small clusters can be selective
+        elif num_nodes <= 8:
+            load_weight = 0.2  # Medium clusters need more balance
+        else:
+            load_weight = 0.35  # Large clusters MUST distribute load realistically
+        
+        load_score = 1.0 - load_factor
+        
+        # 5. Availability penalty - nodes that are frequently idle should be used
+        # This simulates real-world constraints where you can't always choose ideal nodes
+        # (network latency, data locality, organizational boundaries, etc.)
+        idle_penalty = 0.0
+        if num_nodes > 8:
+            # For larger deployments, add penalty for underutilized nodes
+            # This forces more realistic distribution
+            avg_tasks = sum(n.tasks_completed for n in self.nodes) / num_nodes
+            if node.tasks_completed < avg_tasks * 0.5:
+                # This node is underutilized - give it a bonus to force usage
+                idle_penalty = 0.15  # Bonus for underutilized nodes
+        
+        # Adjust weights to account for load balancing weight
+        remaining_weight = 1.0 - load_weight
+        adj_qos_weight = self.qos_weight * remaining_weight
+        adj_energy_weight = self.energy_weight * remaining_weight
+        adj_renewable_weight = self.renewable_weight * remaining_weight
+        
+        # Combine scores with adjusted weights
         total_score = (
-            self.qos_weight * qos_score +
-            self.energy_weight * energy_score +
-            self.renewable_weight * renewable_score +
-            0.1 * load_bonus  # Small load balancing bonus
+            adj_qos_weight * qos_score +
+            adj_energy_weight * energy_score +
+            adj_renewable_weight * renewable_score +
+            load_weight * load_score +
+            idle_penalty  # Bonus for underutilized nodes
         )
         
         return total_score
@@ -240,8 +273,9 @@ class EnergyAwareScheduler:
         Calculate optimal CPU/GPU frequency using DVFS.
         
         Strategy:
-        - High renewable availability → use higher frequency (faster, more power)
-        - Low renewable availability → use lower frequency (slower, less power)
+        - High renewable availability → use higher frequency (faster, energy is "free")
+        - Low renewable availability → use lower frequency (save grid energy)
+        - Always maintain minimum 70% frequency to avoid excessive latency
         - Balance with task urgency/priority
         
         Args:
@@ -252,24 +286,45 @@ class EnergyAwareScheduler:
         Returns:
             Optimal frequency in GHz
         """
-        # Base frequency selection on renewable availability
+        # Renewable factor (0 to 1)
         renewable_factor = renewable_pct / 100.0
         
         # Task priority/urgency (if specified)
         priority = task.get('priority', 0.5)  # 0-1, default medium
         
-        # Combine factors
-        # More renewable → higher frequency
-        # Higher priority → higher frequency
-        combined_factor = 0.7 * renewable_factor + 0.3 * priority
+        # CORRECTED LOGIC:
+        # - High renewable (>80%) → run at max frequency (energy is free!)
+        # - Medium renewable (40-80%) → scale frequency with renewable availability
+        # - Low renewable (<40%) → run at minimum efficient frequency
+        # - High priority tasks always get higher frequency
+        
+        if renewable_factor >= 0.8:
+            # Plenty of renewable - run fast!
+            base_factor = 0.95
+        elif renewable_factor >= 0.4:
+            # Scale linearly between 0.75 and 0.95
+            base_factor = 0.75 + (renewable_factor - 0.4) * (0.95 - 0.75) / 0.4
+        else:
+            # Low renewable - be conservative but not too slow
+            base_factor = 0.70 + renewable_factor * 0.125  # 0.70 to 0.75
+        
+        # Priority boost: high priority tasks get up to 10% frequency boost
+        priority_boost = (priority - 0.5) * 0.1  # -0.05 to +0.05
+        
+        # Combined factor with floor of 0.70 (never go below 70% max freq)
+        combined_factor = max(0.70, min(1.0, base_factor + priority_boost))
         
         # Calculate target frequency
         freq_range = node.max_frequency - node.min_frequency
         target_freq = node.min_frequency + freq_range * combined_factor
         
+        # Ensure we're at least at 70% of max frequency to avoid latency issues
+        min_acceptable_freq = node.min_frequency + 0.7 * freq_range
+        target_freq = max(target_freq, min_acceptable_freq)
+        
         # Apply some hysteresis to avoid frequent switching
         current_freq = node.current_frequency
-        if abs(target_freq - current_freq) < 0.2:  # 200 MHz threshold
+        if abs(target_freq - current_freq) < 0.1:  # 100 MHz threshold
             target_freq = current_freq
         
         logger.debug(f"DVFS: renewable={renewable_pct:.1f}%, "

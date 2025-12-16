@@ -110,6 +110,10 @@ User Request
 └──────────────────────────────────────────────────┘
 ```
 
+### System Architecture Diagram
+
+![Decision Path Selection Flow](docs/images/Decision%20Path%20Selection%20Flow-2025-12-16-131701.png)
+
 ---
 
 ## 📁 Project Structure
@@ -230,24 +234,24 @@ results/
 
 ## 📊 Experimental Results
 
-### Baseline Comparison (1000 tasks, 24 hours, 4 nodes)
+### Baseline Comparison (1000 tasks, 4 nodes)
 
 | Method | Energy (kWh) | Carbon (gCO2) | Latency (s) | Renewable (%) | Net Cost ($) |
 |--------|--------------|---------------|-------------|---------------|--------------|
-| Standard | 0.0281 | 6.79 | 0.5349 | 39.53 | $0.002036 |
-| Energy Aware Only | 0.0073 | 0.01 | 0.3319 | 99.52 | $0.000004 |
-| Blockchain Only | 0.0287 | 6.88 | 0.5485 | 40.12 | **-$0.228454** |
-| **EcoChain-ML** | **0.0074** | **0.02** | **0.3316** | **99.40** | **-$0.146888** |
+| Standard | 0.0282 | 6.25 | 0.5395 | 44.68% | $0.001874 |
+| Energy Aware Only | 0.0162 | 1.88 | 0.5187 | 70.97% | $0.000565 |
+| Blockchain Only | 0.0284 | 6.42 | 0.5414 | 43.45% | $0.001679 |
+| **EcoChain-ML** | **0.0166** | **2.04** | **0.5295** | **69.21%** | **$0.000384** |
 
-### Key Achievements
+### Key Achievements vs Standard Baseline
 
-| Metric | Improvement vs Standard |
-|--------|------------------------|
-| 🔋 Energy Reduction | **73.66%** |
-| 🌱 Carbon Reduction | **99.74%** |
-| ⚡ Latency Improvement | **38%** |
-| 🌞 Renewable Increase | **+59.87 pp** |
-| 💰 Net Cost | **PROFIT** (negative = earning from carbon credits) |
+| Metric | Improvement |
+|--------|-------------|
+| 🔋 Energy Reduction | **41.2%** |
+| 🌱 Carbon Reduction | **67.3%** |
+| ⚡ Latency Overhead | Only 1.9% |
+| 🌞 Renewable Utilization | **69.2%** (vs 44.7% baseline) |
+| 💰 Net Cost Reduction | **79.5%** |
 
 ### Result Visualizations
 
@@ -262,22 +266,45 @@ results/
 
 ### Ablation Study Results
 
-| Component Removed | Energy Δ | Carbon Δ | Impact |
-|-------------------|----------|----------|--------|
-| Renewable Prediction | -29.68% | **+10,866%** | 🔴 Critical |
-| Model Compression | **+200%** | +1,249% | 🔴 Critical |
-| DVFS | +18% | +266% | 🟡 Important |
-| Blockchain | +4% | +49% | 🟢 Low overhead |
+| Configuration | Energy (kWh) | Energy Δ | Carbon (gCO2) | Carbon Δ | Renewable (%) |
+|---------------|--------------|----------|---------------|----------|---------------|
+| Full EcoChain-ML | 0.0160 | baseline | 1.76 | baseline | 72.47% |
+| Without Renewable Prediction | 0.0167 | +4.1% | 3.88 | **+119.9%** | 41.82% |
+| Without DVFS | 0.0180 | +12.4% | 2.29 | +29.7% | 68.22% |
+| Without Compression | 0.0251 | **+56.7%** | 2.81 | +59.3% | 72.00% |
+| Without Blockchain | 0.0161 | +0.9% | 1.92 | +9.2% | 70.20% |
+
+**Key Findings:**
+- 🔴 **INT8 Compression** is most critical - removing it increases energy by 56.7%
+- 🔴 **Renewable Prediction** is essential for carbon reduction - removing it increases carbon by 119.9%
+- 🟡 **DVFS** contributes 12.4% energy savings
+- 🟢 **Blockchain** adds minimal overhead (<1% energy) while enabling carbon credit verification
 
 ### Scalability Results
 
-| Nodes | Latency (s) | Throughput (tasks/h) | Renewable (%) |
-|-------|-------------|----------------------|---------------|
-| 2 | 0.335 | 103 | 99.23 |
-| 8 | 0.251 | 134 | 99.32 |
-| 32 | **0.131** | **165** | 99.59 |
+#### Node Scaling (1000 tasks)
 
-**Findings:** 60% latency reduction, 60% throughput increase, consistent >99% renewable utilization.
+| Nodes | Energy (kWh) | Latency (s) | Throughput (tasks/h) | Renewable (%) |
+|-------|--------------|-------------|----------------------|---------------|
+| 4 | 0.0151 | 0.508 | 102 | 72.15% |
+| 8 | 0.0154 | 0.495 | 98 | 64.36% |
+| 16 | 0.0159 | 0.513 | 105 | 50.43% |
+| 32 | 0.0160 | 0.506 | 98 | 56.61% |
+
+#### Arrival Rate Scaling (4 nodes)
+
+| Arrival Rate | Tasks Completed | Latency (s) | Throughput (tasks/h) | Renewable (%) |
+|--------------|-----------------|-------------|----------------------|---------------|
+| 50 tasks/h | 1000 | 0.519 | 52 | 70.53% |
+| 100 tasks/h | 1000 | 0.517 | 103 | 71.96% |
+| 200 tasks/h | 1000 | 0.520 | 199 | 70.52% |
+| 400 tasks/h | 1000 | 0.514 | 392 | 70.89% |
+
+**Scalability Findings:**
+- ✅ Consistent energy efficiency across 4-32 nodes
+- ✅ Throughput scales linearly with arrival rate (52 → 392 tasks/h)
+- ✅ Latency remains stable (~0.51s) regardless of load
+- ✅ Renewable utilization maintained at 50-72% across configurations
 
 ---
 

@@ -175,12 +175,12 @@ class BaselineComparison:
         x = np.arange(len(methods))
         width = 0.35
         
-        ax.bar(x - width/2, renewable_energy, width, label='Renewable (↑ Higher is Better)', color='#2ecc71')
+        ax.bar(x - width/2, renewable_energy, width, label='Renewable (↓ Lower is Better)', color='#2ecc71')
         ax.bar(x + width/2, grid_energy, width, label='Grid (↓ Lower is Better)', color='#e74c3c')
         
         ax.set_xlabel('Method', fontsize=12, fontweight='bold')
         ax.set_ylabel('Energy Consumption (kWh)', fontsize=12, fontweight='bold')
-        ax.set_title('Energy Consumption Comparison\n(↑ Higher Renewable & ↓ Lower Grid is Better)', 
+        ax.set_title('Energy Consumption Comparison\n(↓ Lower Energy Usage is Better)', 
                     fontsize=14, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels([m.replace('_', ' ').title() for m in methods], rotation=15, ha='right')
@@ -322,91 +322,287 @@ class BaselineComparison:
         plt.close()
     
     def _plot_radar_chart(self, methods: list):
-        """Plot multi-metric radar chart."""
-        # Normalize metrics to 0-100 scale
-        metrics_to_plot = ['energy', 'carbon', 'latency', 'renewable', 'cost']
+        """
+        Plot multi-metric radar chart showing percentage improvement relative to baseline.
         
-        # Get baseline values for normalization
+        This visualization makes differences between methods highly visible by:
+        - Using Standard (baseline) as 0% reference point
+        - Showing improvement as distance from center (outward)
+        - Showing degradation as distance from center (inward)
+        - Making performance gaps clearly distinguishable
+        
+        Perfect for academic papers and presentations!
+        """
+        # Create larger figure with more space for labels
+        fig, ax = plt.subplots(figsize=(16, 14), subplot_kw=dict(projection='polar'))
+        
+        # Define metrics and their properties
+        metrics_info = [
+            {
+                'name': 'Energy\nReduction',
+                'key': 'total_energy_kwh',
+                'lower_is_better': True,
+                'unit': '%'
+            },
+            {
+                'name': 'Carbon\nReduction',
+                'key': 'total_carbon_gco2',
+                'lower_is_better': True,
+                'unit': '%'
+            },
+            {
+                'name': 'Latency\nImprovement',
+                'key': 'avg_latency_sec',
+                'lower_is_better': True,
+                'unit': '%'
+            },
+            {
+                'name': 'Renewable\nEnergy Usage',
+                'key': 'renewable_percent',
+                'lower_is_better': False,
+                'unit': '%'
+            },
+            {
+                'name': 'Cost\nReduction',
+                'key': 'net_cost_usd',
+                'lower_is_better': True,
+                'unit': '%'
+            }
+        ]
+        
+        num_metrics = len(metrics_info)
+        angles = np.linspace(0, 2 * np.pi, num_metrics, endpoint=False).tolist()
+        angles += angles[:1]  # Complete the circle
+        
+        # Get baseline (standard) for comparison
         baseline = self.results['standard']
-        
-        fig, ax = plt.subplots(figsize=(12, 10), subplot_kw=dict(projection='polar'))
-        
-        angles = np.linspace(0, 2 * np.pi, len(metrics_to_plot), endpoint=False).tolist()
-        angles += angles[:1]
         
         # Define distinct colors and styles for each method
         method_styles = {
-            'standard': {'color': '#e74c3c', 'linestyle': '-', 'linewidth': 2.5, 'marker': 'o', 'markersize': 8},
-            'energy_aware_only': {'color': '#3498db', 'linestyle': '--', 'linewidth': 3, 'marker': 's', 'markersize': 10},
-            'blockchain_only': {'color': '#f39c12', 'linestyle': '-.', 'linewidth': 2.5, 'marker': '^', 'markersize': 8},
-            'ecochain_ml': {'color': '#2ecc71', 'linestyle': '-', 'linewidth': 3.5, 'marker': 'D', 'markersize': 10}
+            'standard': {
+                'color': '#95a5a6',  # Gray for baseline
+                'linestyle': '-', 
+                'linewidth': 3, 
+                'marker': 'o', 
+                'markersize': 10,
+                'alpha': 0.9,
+                'fill_alpha': 0.15,
+                'label': 'Standard (Baseline = 0%)',
+                'zorder': 1
+            },
+            'blockchain_only': {
+                'color': '#e67e22',  # Orange
+                'linestyle': '-.', 
+                'linewidth': 3.5, 
+                'marker': '^', 
+                'markersize': 11,
+                'alpha': 0.9,
+                'fill_alpha': 0.25,
+                'label': 'Blockchain Only',
+                'zorder': 2
+            },
+            'energy_aware_only': {
+                'color': '#3498db',  # Blue
+                'linestyle': '--', 
+                'linewidth': 4, 
+                'marker': 's', 
+                'markersize': 13,
+                'alpha': 0.95,
+                'fill_alpha': 0.28,
+                'label': 'Energy-Aware Only',
+                'zorder': 3
+            },
+            'ecochain_ml': {
+                'color': '#27ae60',  # Green
+                'linestyle': '-', 
+                'linewidth': 5, 
+                'marker': 'D', 
+                'markersize': 15,
+                'alpha': 1.0,
+                'fill_alpha': 0.30,
+                'label': '★ EcoChain-ML (Proposed)',
+                'zorder': 4
+            }
         }
         
-        # Default style for any other methods
-        default_style = {'color': '#9b59b6', 'linestyle': '-', 'linewidth': 2, 'marker': 'o', 'markersize': 6}
+        # Sort methods by zorder
+        sorted_methods = sorted(methods, 
+                               key=lambda m: method_styles.get(m, {'zorder': 0})['zorder'])
         
-        for method in methods:
-            values = []
+        # Calculate improvements and track min/max for scaling
+        all_improvements = []
+        method_values = {}
+        
+        # First pass: calculate all improvements
+        for method in sorted_methods:
             result = self.results[method]
-            style = method_styles.get(method, default_style)
+            values = []
             
-            # Energy (lower is better, so invert)
-            if baseline['total_energy_kwh'] > 0:
-                energy_score = (1 - result['total_energy_kwh'] / baseline['total_energy_kwh']) * 100
-            else:
-                energy_score = 0
-            values.append(max(0, min(100, 50 + energy_score)))
+            for metric in metrics_info:
+                key = metric['key']
+                value = result[key]
+                baseline_value = baseline[key]
+                
+                if method == 'standard':
+                    # Baseline is always at 0%
+                    improvement = 0.0
+                else:
+                    if metric['lower_is_better']:
+                        # For "lower is better": positive % = improvement (reduction)
+                        # Negative % = degradation (increase)
+                        if baseline_value > 0:
+                            improvement = ((baseline_value - value) / baseline_value) * 100
+                        else:
+                            improvement = 0
+                    else:
+                        # For "higher is better": show absolute percentage point difference
+                        # Positive = improvement, negative = degradation
+                        improvement = value - baseline_value
+                
+                values.append(improvement)
             
-            # Carbon (lower is better, so invert)
-            if baseline['total_carbon_gco2'] > 0:
-                carbon_score = (1 - result['total_carbon_gco2'] / baseline['total_carbon_gco2']) * 100
-            else:
-                carbon_score = 0
-            values.append(max(0, min(100, 50 + carbon_score)))
+            method_values[method] = values
+            if method != 'standard':
+                all_improvements.extend(values)
+        
+        # Set dynamic radial limits based on data (including negative values)
+        max_val = max(all_improvements) if all_improvements else 50
+        min_val = min(all_improvements) if all_improvements else 0
+        
+        # Determine scale to show both positive and negative clearly
+        if min_val >= 0:
+            # All positive - no degradation
+            lower_limit = -5
+            upper_limit = max(25, int(max_val * 1.2))
+        else:
+            # Has negative values - need space for degradation
+            lower_limit = min(-15, int(min_val * 1.3))  # Give space for negative
+            upper_limit = max(50, int(max_val * 1.2))
+        
+        # Round to nice numbers
+        if upper_limit <= 30:
+            upper_limit = 30
+            ticks = list(range(lower_limit, upper_limit + 1, 10))
+        elif upper_limit <= 60:
+            upper_limit = 60
+            ticks = list(range(lower_limit, upper_limit + 1, 15))
+        else:
+            upper_limit = 100
+            ticks = list(range(lower_limit, upper_limit + 1, 20))
+        
+        # Plot each method
+        for method in sorted_methods:
+            style = method_styles.get(method, {
+                'color': '#9b59b6', 
+                'linestyle': '-', 
+                'linewidth': 3, 
+                'marker': 'o', 
+                'markersize': 10,
+                'alpha': 0.8,
+                'fill_alpha': 0.20,
+                'label': method.replace('_', ' ').title(),
+                'zorder': 0
+            })
             
-            # Latency (lower is better, so invert)
-            if baseline['avg_latency_sec'] > 0:
-                latency_score = (1 - result['avg_latency_sec'] / baseline['avg_latency_sec']) * 100
-            else:
-                latency_score = 0
-            values.append(max(0, min(100, 50 + latency_score)))
+            values = method_values[method]
             
-            # Renewable (higher is better)
-            renewable_score = result['renewable_percent']
-            values.append(renewable_score)
+            # Complete the circle
+            values_plot = values + values[:1]
             
-            # Cost (lower is better, so invert)
-            if baseline['operational_cost_usd'] > 0:
-                cost_score = (1 - result['operational_cost_usd'] / baseline['operational_cost_usd']) * 100
-            else:
-                cost_score = 0
-            values.append(max(0, min(100, 50 + cost_score)))
+            # First, fill the area (only if not baseline)
+            if method != 'standard':
+                ax.fill(angles, values_plot, 
+                       alpha=style['fill_alpha'], 
+                       color=style['color'],
+                       zorder=style['zorder'])
             
-            values += values[:1]
-            
-            # Plot with distinct style
-            ax.plot(angles, values, 
+            # Then, plot the line on top
+            ax.plot(angles, values_plot, 
                    linestyle=style['linestyle'],
                    linewidth=style['linewidth'], 
                    color=style['color'],
                    marker=style['marker'],
                    markersize=style['markersize'],
-                   label=method.replace('_', ' ').title(),
-                   zorder=3 if method == 'energy_aware_only' else 2)
-            ax.fill(angles, values, alpha=0.1, color=style['color'])
+                   label=style['label'],
+                   alpha=style['alpha'],
+                   zorder=style['zorder'] + 10,
+                   markeredgecolor='white',
+                   markeredgewidth=2)
+        
+        # Set axis labels with clear indicators
+        metric_labels = []
+        for metric in metrics_info:
+            if metric['lower_is_better']:
+                metric_labels.append(f"{metric['name']}\n(Higher % = Better)")
+            else:
+                metric_labels.append(f"{metric['name']}\n(Higher % = Better)")
         
         ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(['Energy\n(↓ Lower)', 'Carbon\n(↓ Lower)', 'Latency\n(↓ Lower)', 
-                           'Renewable\n(↑ Higher)', 'Cost\n(↓ Lower)'], fontsize=11, fontweight='bold')
-        ax.set_ylim(0, 100)
-        ax.set_title('Multi-Metric Performance Comparison\n(Larger Area = Better Overall Performance)', 
-                     fontsize=14, fontweight='bold', pad=20)
-        ax.legend(loc='upper right', bbox_to_anchor=(1.35, 1.1), fontsize=11)
-        ax.grid(True, alpha=0.3)
+        ax.set_xticklabels(metric_labels, fontsize=13, fontweight='bold', 
+                          verticalalignment='center')
+        ax.tick_params(axis='x', pad=25)
         
-        plt.tight_layout()
+        # Set radial limits
+        ax.set_ylim(lower_limit, upper_limit)
+        ax.set_yticks(ticks)
+        ax.set_yticklabels([f'{t}%' for t in ticks], 
+                          fontsize=11, color='#2c3e50', fontweight='bold')
+        
+        # Add a reference circle at 0% for baseline with enhanced visibility
+        ax.plot(angles, [0] * len(angles), 'k-', linewidth=2.5, alpha=0.7, 
+               label='Baseline Reference (0%)', zorder=15)
+        
+        # Shade the negative region lightly to show degradation area
+        if lower_limit < 0:
+            ax.fill_between(angles, lower_limit, 0, alpha=0.08, color='red', 
+                           label='Degradation Zone', zorder=0)
+        
+        # Add title with clear explanation
+        title_text = 'Performance Improvement vs. Baseline (Standard Method)\n\n'
+        title_text += '✓ Center (0%) = Standard Baseline Performance\n'
+        title_text += '✓ Outward (Positive) = Better Performance | Inward (Negative) = Worse Performance\n'
+        title_text += '✓ Larger Positive Area = Superior Overall System'
+        
+        ax.set_title(title_text, fontsize=17, fontweight='bold', pad=50, 
+                    color='#2c3e50', linespacing=1.6)
+        
+        # Add legend with better positioning
+        legend = ax.legend(loc='upper left', bbox_to_anchor=(1.35, 1.15), 
+                          fontsize=13, frameon=True, shadow=True, 
+                          fancybox=True, title='System Configurations', 
+                          title_fontsize=15, borderpad=1.3, labelspacing=1.3)
+        legend.get_frame().set_alpha(0.98)
+        legend.get_frame().set_edgecolor('#2c3e50')
+        legend.get_frame().set_linewidth(2)
+        
+        # Add grid with better visibility
+        ax.grid(True, alpha=0.6, linestyle='--', linewidth=1.2, color='#7f8c8d')
+        
+        # Add explanatory text box at bottom
+        explanation = (
+            '📊 How to Interpret This Chart:\n\n'
+            '  • Each axis shows % improvement over Standard baseline\n'
+            '  • 0% (bold black line) = Standard baseline performance\n'
+            '  • Positive values (outward) = Better than baseline\n'
+            '  • Negative values (inward) = Worse than baseline\n'
+            '  • Compare colored areas: larger positive area = better overall'
+        )
+        
+        fig.text(0.5, 0.01, explanation, 
+                ha='center', va='bottom', fontsize=11.5, 
+                bbox=dict(boxstyle='round,pad=1.3', facecolor='#ecf0f1', 
+                         edgecolor='#2c3e50', linewidth=2.5, alpha=0.97),
+                style='normal', color='#2c3e50', linespacing=1.9,
+                family='monospace')
+        
+        # Adjust layout to prevent text overlap
+        plt.tight_layout(pad=3.5)
+        plt.subplots_adjust(bottom=0.15, top=0.88)
+        
         plt.savefig(self.plots_dir / 'radar_comparison.png', dpi=300, bbox_inches='tight')
         plt.close()
+        
+        logger.info("Radar chart created with percentage improvement visualization")
     
     def _generate_comparison_tables(self):
         """Generate comparison tables."""

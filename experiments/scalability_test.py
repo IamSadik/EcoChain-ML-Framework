@@ -100,23 +100,12 @@ class ScalabilityTest:
         
         node_counts = self.config['scalability']['node_counts']
         
-        # Generate a base workload once for consistent comparison
-        random.seed(RANDOM_SEED)
-        np.random.seed(RANDOM_SEED)
-        
-        base_simulator = NetworkSimulator(
-            system_config_path="config/system_config.yaml",
-            experiment_config_path=self.config_path
-        )
-        base_simulator.generate_workload()
-        base_workload = base_simulator.tasks_generated
-        
         for num_nodes in node_counts:
             logger.info(f"\nTesting with {num_nodes} nodes...")
             
-            # Use different seed for each node count to simulate different conditions
-            # but keep workload the same for fair comparison
-            np.random.seed(RANDOM_SEED + num_nodes)
+            # Use consistent seed for fair comparison across node counts
+            random.seed(RANDOM_SEED)
+            np.random.seed(RANDOM_SEED)
             
             start_time = time.time()
             
@@ -127,8 +116,8 @@ class ScalabilityTest:
                 num_nodes=num_nodes
             )
             
-            # Use shared workload
-            simulator.tasks_generated = base_workload
+            # Generate fresh workload for each test
+            simulator.generate_workload()
             
             # Run simulation
             metrics = simulator.run_simulation(method="ecochain_ml")
@@ -141,28 +130,23 @@ class ScalabilityTest:
             else:
                 simulated_duration_hours = 1.0
             
-            # Store metrics with proper throughput calculation
+            # Store metrics
             metrics['execution_time_sec'] = execution_time
             metrics['num_nodes'] = num_nodes
             metrics['simulated_duration_hours'] = simulated_duration_hours
             
-            # Calculate effective throughput - more nodes can handle higher peak loads
-            # This simulates real-world benefits of horizontal scaling
-            base_throughput = metrics['tasks_completed'] / simulated_duration_hours if simulated_duration_hours > 0 else 0
-            # More nodes provide better parallel processing capacity
-            scaling_factor = 1 + 0.15 * np.log2(num_nodes / 2)  # Logarithmic scaling benefit
-            metrics['throughput_tasks_per_hour'] = base_throughput * scaling_factor
-            
-            # Simulate latency improvement with more nodes (better load distribution)
-            # More nodes = less queueing = lower latency
-            latency_improvement = 1.0 / (1 + 0.05 * (num_nodes - 2))
-            metrics['avg_latency_sec'] = metrics['avg_latency_sec'] * latency_improvement
+            # Calculate throughput - real metric from simulation
+            metrics['throughput_tasks_per_hour'] = (
+                metrics['tasks_completed'] / simulated_duration_hours 
+                if simulated_duration_hours > 0 else 0
+            )
             
             self.results['node_scaling'][num_nodes] = metrics
             
             logger.info(f"  Nodes: {num_nodes}")
             logger.info(f"  Energy: {metrics['total_energy_kwh']:.4f} kWh")
             logger.info(f"  Latency: {metrics['avg_latency_sec']:.4f} sec")
+            logger.info(f"  Renewable: {metrics['renewable_percent']:.2f}%")
             logger.info(f"  Throughput: {metrics['throughput_tasks_per_hour']:.2f} tasks/hour")
             
             # Save intermediate results
@@ -179,9 +163,9 @@ class ScalabilityTest:
         for workload_size in workload_sizes:
             logger.info(f"\nTesting with {workload_size} tasks...")
             
-            # Reset random seed but add workload size for variation
-            random.seed(RANDOM_SEED + workload_size)
-            np.random.seed(RANDOM_SEED + workload_size)
+            # Reset random seed for reproducibility
+            random.seed(RANDOM_SEED)
+            np.random.seed(RANDOM_SEED)
             
             start_time = time.time()
             
@@ -206,14 +190,24 @@ class ScalabilityTest:
             metrics['execution_time_sec'] = execution_time
             metrics['workload_size'] = workload_size
             metrics['simulated_duration_hours'] = simulated_duration_hours
-            metrics['throughput_tasks_per_hour'] = metrics['tasks_completed'] / simulated_duration_hours if simulated_duration_hours > 0 else 0
+            metrics['throughput_tasks_per_hour'] = (
+                metrics['tasks_completed'] / simulated_duration_hours 
+                if simulated_duration_hours > 0 else 0
+            )
+            
+            # Calculate energy per task (should be relatively constant)
+            metrics['energy_per_task_kwh'] = (
+                metrics['total_energy_kwh'] / metrics['tasks_completed']
+                if metrics['tasks_completed'] > 0 else 0
+            )
             
             self.results['workload_scaling'][workload_size] = metrics
             
             logger.info(f"  Tasks: {workload_size}")
             logger.info(f"  Energy: {metrics['total_energy_kwh']:.4f} kWh")
+            logger.info(f"  Energy/Task: {metrics['energy_per_task_kwh']:.6f} kWh")
             logger.info(f"  Latency: {metrics['avg_latency_sec']:.4f} sec")
-            logger.info(f"  Throughput: {metrics['throughput_tasks_per_hour']:.2f} tasks/hour")
+            logger.info(f"  Renewable: {metrics['renewable_percent']:.2f}%")
             
             # Save intermediate results
             self._save_workload_scaling_results()
@@ -226,12 +220,14 @@ class ScalabilityTest:
         
         arrival_rates = [50, 100, 200, 400]
         
-        for arrival_rate in arrival_rates:
+        for idx, arrival_rate in enumerate(arrival_rates):
             logger.info(f"\nTesting with {arrival_rate} tasks/hour arrival rate...")
             
-            # Different seed for each arrival rate
-            random.seed(RANDOM_SEED + arrival_rate)
-            np.random.seed(RANDOM_SEED + arrival_rate)
+            # IMPORTANT: Use different seed for each arrival rate to get different patterns
+            # This ensures we see realistic variance in results across different rates
+            test_seed = RANDOM_SEED + idx * 1000
+            random.seed(test_seed)
+            np.random.seed(test_seed)
             
             start_time = time.time()
             
@@ -241,6 +237,10 @@ class ScalabilityTest:
                 experiment_config_path=self.config_path,
                 arrival_rate=arrival_rate
             )
+            
+            # CRITICAL: Clear any cached workload and regenerate fresh
+            simulator.tasks_generated = []
+            simulator.generate_workload()
             
             # Run simulation
             metrics = simulator.run_simulation(method="ecochain_ml")
@@ -256,21 +256,19 @@ class ScalabilityTest:
             metrics['execution_time_sec'] = execution_time
             metrics['arrival_rate'] = arrival_rate
             metrics['simulated_duration_hours'] = simulated_duration_hours
-            metrics['throughput_tasks_per_hour'] = metrics['tasks_completed'] / simulated_duration_hours if simulated_duration_hours > 0 else 0
-            
-            # Higher arrival rates cause more queueing delays
-            # Simulate realistic latency increase under load
-            load_factor = arrival_rate / 100.0  # Normalize to base rate
-            queueing_delay = 0.05 * (load_factor - 1) ** 2  # Quadratic increase
-            metrics['avg_latency_sec'] = metrics['avg_latency_sec'] + max(0, queueing_delay)
-            metrics['max_latency_sec'] = metrics['max_latency_sec'] * (1 + 0.2 * (load_factor - 1))
+            metrics['throughput_tasks_per_hour'] = (
+                metrics['tasks_completed'] / simulated_duration_hours 
+                if simulated_duration_hours > 0 else 0
+            )
             
             self.results['arrival_rate_scaling'][arrival_rate] = metrics
             
             logger.info(f"  Arrival Rate: {arrival_rate} tasks/hour")
-            logger.info(f"  Energy: {metrics['total_energy_kwh']:.4f} kWh")
+            logger.info(f"  Simulated Duration: {simulated_duration_hours:.2f} hours")
+            logger.info(f"  Energy: {metrics['total_energy_kwh']:.6f} kWh")
             logger.info(f"  Latency: {metrics['avg_latency_sec']:.4f} sec")
-            logger.info(f"  Throughput: {metrics['throughput_tasks_per_hour']:.2f} tasks/hour")
+            logger.info(f"  Max Latency: {metrics['max_latency_sec']:.4f} sec")
+            logger.info(f"  Renewable: {metrics['renewable_percent']:.2f}%")
             
             # Save intermediate results
             self._save_arrival_rate_scaling_results()
@@ -588,3 +586,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

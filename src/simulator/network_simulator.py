@@ -40,7 +40,9 @@ class NetworkSimulator:
         experiment_config_path: str,
         num_nodes: Optional[int] = None,
         num_tasks: Optional[int] = None,
-        arrival_rate: Optional[float] = None
+        arrival_rate: Optional[float] = None,
+        use_deterministic_renewable: bool = False,
+        random_seed: Optional[int] = None
     ):
         """
         Initialize network simulator.
@@ -51,6 +53,8 @@ class NetworkSimulator:
             num_nodes: Override number of nodes (for scalability testing)
             num_tasks: Override number of tasks (for scalability testing)
             arrival_rate: Override arrival rate (for scalability testing)
+            use_deterministic_renewable: If True, use deterministic renewable traces (Issue 6 fix)
+            random_seed: Random seed for reproducibility (for stochastic renewable)
         """
         # Load configurations
         with open(system_config_path, 'r') as f:
@@ -63,6 +67,17 @@ class NetworkSimulator:
         self.num_nodes_override = num_nodes
         self.num_tasks_override = num_tasks
         self.arrival_rate_override = arrival_rate
+        self.use_deterministic_renewable = use_deterministic_renewable
+        self.random_seed = random_seed
+        
+        # Set random seed if provided
+        if random_seed is not None:
+            np.random.seed(random_seed)
+        
+        # Generate deterministic renewable traces if requested
+        self.renewable_traces = {}
+        if use_deterministic_renewable:
+            self.renewable_traces = self._generate_deterministic_traces()
         
         # Initialize components
         self.nodes: List[EdgeNode] = []
@@ -85,6 +100,87 @@ class NetworkSimulator:
         
         logger.info("NetworkSimulator initialized successfully")
     
+    def _generate_deterministic_traces(self, duration_hours: float = 24.0, 
+                                       resolution_minutes: float = 10.0) -> Dict[str, Dict[float, float]]:
+        """
+        Generate deterministic renewable power traces for all renewable source types.
+        
+        FIX Issue 6: Pre-computed traces ensure identical renewable conditions across runs.
+        
+        Args:
+            duration_hours: Duration of trace in hours
+            resolution_minutes: Time resolution in minutes
+            
+        Returns:
+            Dictionary mapping source type to trace: {source: {time_hours: power_watts}}
+        """
+        logger.info(f"Generating deterministic renewable traces (duration: {duration_hours}h, "
+                   f"resolution: {resolution_minutes}min)...")
+        
+        # Use fixed seed for deterministic generation
+        np.random.seed(42)
+        
+        # Generate time points
+        resolution_hours = resolution_minutes / 60.0
+        times = np.arange(0, duration_hours + resolution_hours, resolution_hours)
+        
+        traces = {}
+        
+        # Solar trace (sinusoidal with realistic variability)
+        solar_trace = {}
+        for t in times:
+            hour = t % 24
+            if 6 <= hour <= 18:
+                # Sinusoidal pattern peaking at noon
+                solar_factor = np.sin((hour - 6) * np.pi / 12)
+                # Fixed variability pattern (not random, but realistic)
+                variability = 0.85 + 0.10 * np.sin(t * 2 * np.pi / 3)  # 3-hour cloud cycle
+                variability = np.clip(variability, 0.5, 1.0)
+                power = solar_factor * variability  # Normalized (0-1)
+            else:
+                power = 0.0
+            solar_trace[t] = power
+        traces['solar'] = solar_trace
+        
+        # Wind trace (Weibull-based with temporal correlation)
+        wind_trace = {}
+        # Generate correlated wind pattern using AR(1) process
+        wind_series = [0.3]  # Start at 30% capacity
+        for i in range(1, len(times)):
+            # AR(1) with phi=0.9 for strong temporal correlation
+            prev = wind_series[-1]
+            innovation = np.random.normal(0, 0.05)
+            new_val = 0.9 * prev + 0.1 * 0.30 + innovation  # Mean revert to 0.30
+            new_val = np.clip(new_val, 0.0, 0.95)
+            wind_series.append(new_val)
+        
+        # Add diurnal pattern (stronger at night)
+        for i, t in enumerate(times):
+            hour = t % 24
+            if 0 <= hour < 6 or 18 <= hour < 24:
+                diurnal_factor = 1.10
+            else:
+                diurnal_factor = 0.90
+            wind_trace[t] = wind_series[i] * diurnal_factor
+        traces['wind'] = wind_trace
+        
+        # Hybrid trace (70% solar + 30% wind)
+        hybrid_trace = {}
+        for t in times:
+            solar_component = solar_trace[t] * 0.7
+            wind_component = wind_trace[t] * 0.30 / 0.35  # Normalize wind to similar scale
+            hybrid_trace[t] = solar_component + wind_component
+        traces['hybrid'] = hybrid_trace
+        
+        # Grid trace (always zero)
+        traces['grid'] = {t: 0.0 for t in times}
+        
+        # Reset random seed
+        np.random.seed(None)
+        
+        logger.info(f"Generated traces for: {list(traces.keys())}")
+        return traces
+    
     def _initialize_nodes(self) -> None:
         """Initialize edge nodes from configuration."""
         logger.info("Initializing edge nodes...")
@@ -97,31 +193,99 @@ class NetworkSimulator:
         else:
             target_count = len(base_nodes)
         
-        # Create nodes - cycle through base configs if we need more
+        # Define realistic distribution of node types for scaling
+        # In real-world edge deployments:
+        # - ~25% have solar panels
+        # - ~15% have wind turbines  
+        # - ~10% have hybrid (solar + battery)
+        # - ~50% are grid-only (no renewable)
+        # This gives ~50% renewable nodes which is realistic for green edge deployments
+        node_type_distribution = [
+            {'renewable_source': 'solar', 'renewable_capacity_watts': 150, 'name_prefix': 'Solar Edge Node', 'weight': 0.25},
+            {'renewable_source': 'wind', 'renewable_capacity_watts': 120, 'name_prefix': 'Wind Edge Node', 'weight': 0.15},
+            {'renewable_source': 'hybrid', 'renewable_capacity_watts': 200, 'name_prefix': 'Hybrid Edge Node', 'weight': 0.10},
+            {'renewable_source': 'grid', 'renewable_capacity_watts': 0, 'name_prefix': 'Grid-Only Node', 'weight': 0.50},
+        ]
+        
+        # For scalability tests (when num_nodes_override is set), ALWAYS apply distribution
+        # to ensure consistent renewable ratios across different node counts
+        apply_distribution = self.num_nodes_override is not None
+        
+        # Create nodes with realistic distribution
         for i in range(target_count):
-            base_config = base_nodes[i % len(base_nodes)].copy()
+            if i < len(base_nodes) and not apply_distribution:
+                # Use base configs for first few nodes (default behavior for non-scaling tests)
+                base_config = base_nodes[i].copy()
+                # Ensure name matches renewable source for base nodes too
+                source = base_config.get('renewable_source', 'grid')
+                if source == 'solar':
+                    base_config['name'] = f"Solar Edge Node #{i+1}"
+                elif source == 'wind':
+                    base_config['name'] = f"Wind Edge Node #{i+1}"
+                elif source == 'hybrid':
+                    base_config['name'] = f"Hybrid Edge Node #{i+1}"
+                else:
+                    base_config['name'] = f"Grid-Only Node #{i+1}"
+            else:
+                # For scalability tests, use realistic distribution for ALL nodes
+                # Use deterministic selection based on index for reproducibility
+                np.random.seed(42 + i)  # Reproducible but varied
+                rand_val = np.random.random()
+                cumulative = 0
+                selected_type = node_type_distribution[-1]  # Default to grid
+                for node_type in node_type_distribution:
+                    cumulative += node_type['weight']
+                    if rand_val < cumulative:
+                        selected_type = node_type
+                        break
+                
+                # Use a random base config as template for hardware specs
+                template_idx = i % len(base_nodes)
+                base_config = base_nodes[template_idx].copy()
+                
+                # Override renewable settings based on distribution
+                base_config['renewable_source'] = selected_type['renewable_source']
+                base_config['renewable_capacity_watts'] = selected_type['renewable_capacity_watts']
+                
+                # CRITICAL: Set name to match the actual renewable source
+                base_config['name'] = f"{selected_type['name_prefix']} #{i+1}"
+                
+                # Add some variation to renewable capacity (±20%)
+                if base_config['renewable_capacity_watts'] > 0:
+                    variation = np.random.uniform(0.8, 1.2)
+                    base_config['renewable_capacity_watts'] = int(
+                        base_config['renewable_capacity_watts'] * variation
+                    )
+            
             # Update node ID to be unique
             base_config['id'] = f"node_{i+1}"
-            base_config['name'] = f"{base_config.get('name', 'Node').split('#')[0].strip()} #{i+1}"
             
-            # Vary renewable capacity for different nodes to create diversity
-            if i >= len(base_nodes):
-                # For additional nodes, vary the renewable capacity
-                capacity_factor = 0.7 + 0.6 * np.random.random()  # 70% to 130%
-                base_config['renewable_capacity_watts'] = int(
-                    base_config['renewable_capacity_watts'] * capacity_factor
-                )
+            # FIX Issue 6: Pass renewable trace to node if deterministic mode is enabled
+            renewable_trace = None
+            if self.use_deterministic_renewable and base_config['renewable_source'] in self.renewable_traces:
+                source_type = base_config['renewable_source']
+                # Scale the normalized trace by the node's capacity
+                capacity = base_config['renewable_capacity_watts']
+                renewable_trace = {
+                    time: power * capacity 
+                    for time, power in self.renewable_traces[source_type].items()
+                }
             
-            node = EdgeNode(base_config)
+            node = EdgeNode(base_config, renewable_trace=renewable_trace)
             self.nodes.append(node)
         
-        logger.info(f"Initialized {len(self.nodes)} edge nodes")
+        # Log node distribution
+        renewable_count = sum(1 for n in self.nodes if n.renewable_source != 'grid')
+        logger.info(f"Initialized {len(self.nodes)} edge nodes "
+                   f"({renewable_count} with renewable [{100*renewable_count/len(self.nodes):.1f}%], "
+                   f"{len(self.nodes) - renewable_count} grid-only)")
     
     def _initialize_blockchain(self) -> None:
         """Initialize blockchain verification layer."""
         logger.info("Initializing blockchain...")
         
         blockchain_config = self.system_config['blockchain']
+        monitoring_config = self.system_config['monitoring']
         
         # Use node IDs as validators
         validators = [node.node_id for node in self.nodes]
@@ -131,7 +295,8 @@ class NetworkSimulator:
             validators=validators,
             stake_amounts=stake_amounts,
             block_time=blockchain_config['block_time_seconds'],
-            carbon_intensity=self.system_config['monitoring']['carbon_intensity_gco2_per_kwh']
+            carbon_intensity=monitoring_config['carbon_intensity_gco2_per_kwh'],
+            carbon_credit_rate=monitoring_config.get('carbon_credit_rate', 0.00005)  # Use config value
         )
         
         logger.info("Blockchain initialized")
@@ -203,33 +368,39 @@ class NetworkSimulator:
         if num_tasks is None:
             num_tasks = self.num_tasks_override or self.experiment_config['workload']['num_tasks']
         
-        if duration_hours is None:
-            duration_hours = self.system_config['simulation']['duration_hours']
+        # Get the arrival rate (tasks per hour)
+        # For arrival rate scaling tests, this determines how quickly tasks arrive
+        arrival_rate = self.arrival_rate_override or self.experiment_config['workload']['arrival_rate_per_hour']
         
-        logger.info(f"Generating {num_tasks} tasks over {duration_hours} hours...")
+        # Calculate the expected duration based on arrival rate
+        # Higher arrival rate = shorter duration for same number of tasks
+        # This is the key fix: arrival rate determines task density
+        expected_duration = num_tasks / arrival_rate
+        
+        if duration_hours is None:
+            # Use the calculated duration based on arrival rate
+            # Add small buffer for Poisson variance
+            duration_hours = expected_duration * 1.1
+        
+        logger.info(f"Generating {num_tasks} tasks over {duration_hours:.1f} hours "
+                   f"(arrival rate: {arrival_rate} tasks/h)...")
         
         workload_config = self.experiment_config['workload']
         task_types = workload_config['task_types']
         
         tasks = []
         
-        # Generate task arrival times (Poisson process)
-        arrival_rate = self.arrival_rate_override or workload_config['arrival_rate_per_hour']
-        
-        # Calculate how many tasks we need based on arrival rate and duration
-        expected_tasks = int(arrival_rate * duration_hours)
-        actual_num_tasks = max(num_tasks, expected_tasks)
-        
+        # Generate task arrival times using Poisson process with specified arrival rate
+        # Inter-arrival times follow exponential distribution with mean = 1/arrival_rate
         inter_arrival_times = np.random.exponential(
             scale=1.0/arrival_rate,
-            size=actual_num_tasks
+            size=num_tasks
         )
         arrival_times = np.cumsum(inter_arrival_times)
         
-        # Filter to duration and limit to num_tasks
-        arrival_times = arrival_times[arrival_times <= duration_hours]
-        if len(arrival_times) > num_tasks:
-            arrival_times = arrival_times[:num_tasks]
+        # Don't scale arrival times - let them naturally reflect the arrival rate
+        # This means higher arrival rates will have shorter total simulation time
+        # which is realistic behavior
         
         for i, arrival_time in enumerate(arrival_times):
             # Select task type
@@ -272,7 +443,13 @@ class NetworkSimulator:
             tasks.append(task)
         
         self.tasks_generated = tasks
-        logger.info(f"Generated {len(tasks)} tasks")
+        
+        # Calculate actual duration and effective rate
+        actual_duration = arrival_times[-1] if len(arrival_times) > 0 else 0
+        effective_rate = len(tasks) / actual_duration if actual_duration > 0 else 0
+        
+        logger.info(f"Generated {len(tasks)} tasks (actual duration: {actual_duration:.1f}h, "
+                   f"effective rate: {effective_rate:.1f} tasks/h)")
         
         return tasks
     

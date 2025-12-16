@@ -1,6 +1,8 @@
 # EcoChain-ML System Configuration
 
 # Edge Node Configuration
+# NOTE: Renewable capacity is set realistically relative to power consumption
+# Real-world edge nodes typically have limited renewable capacity
 edge_nodes:
   - id: "node_1"
     name: "Solar Edge Node"
@@ -8,7 +10,7 @@ edge_nodes:
     gpu_available: true
     gpu_memory_gb: 8
     renewable_source: "solar"
-    renewable_capacity_watts: 1000
+    renewable_capacity_watts: 150  # Realistic: small solar panel ~150W peak
     initial_battery_percent: 50.0
     max_frequency_ghz: 2.4
     min_frequency_ghz: 0.8
@@ -21,7 +23,7 @@ edge_nodes:
     gpu_available: true
     gpu_memory_gb: 6
     renewable_source: "wind"
-    renewable_capacity_watts: 800
+    renewable_capacity_watts: 120  # Realistic: small wind turbine ~120W avg
     initial_battery_percent: 60.0
     max_frequency_ghz: 2.2
     min_frequency_ghz: 0.6
@@ -34,7 +36,7 @@ edge_nodes:
     gpu_available: true
     gpu_memory_gb: 12
     renewable_source: "solar"
-    renewable_capacity_watts: 1200
+    renewable_capacity_watts: 200  # Realistic: larger solar setup ~200W peak
     initial_battery_percent: 75.0
     max_frequency_ghz: 3.0
     min_frequency_ghz: 1.0
@@ -78,6 +80,7 @@ monitoring:
   sampling_interval_seconds: 1
   carbon_intensity_gco2_per_kwh: 400  # US average
   electricity_price_per_kwh: 0.12
+  carbon_credit_rate: 0.00005  # $ per gCO2 saved (realistic: ~$50/ton CO2 = $0.00005/g)
   
 # Simulation Parameters
 simulation:

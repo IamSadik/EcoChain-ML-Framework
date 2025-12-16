@@ -113,7 +113,7 @@ ablation_components:
 
 # Scalability Test Parameters
 scalability:
-  node_counts: [2, 4, 8, 16, 32]
+  node_counts: [4, 8, 16, 32]
   task_counts: [100, 500, 1000, 2000, 5000]
   
 # Metrics to Collect
