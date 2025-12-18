@@ -41,3 +41,6 @@ pytest-cov>=4.1.0
 
 # Documentation
 sphinx>=7.0.0
+
+#predictor
+xgboost>=1.7.6

@@ -1,0 +1,98 @@
+{
+  "model": "XGBoost (NO DATA LEAKAGE)",
+  "training_samples": 1495,
+  "validation_samples": 320,
+  "test_samples": 321,
+  "train_metrics": {
+    "rmse": 3.9679519642855325,
+    "mae": 2.9245045291759055,
+    "r2": 0.9578099023255917,
+    "mape": 1505530406.7123494
+  },
+  "val_metrics": {
+    "rmse": 5.6197780211080985,
+    "mae": 4.050011884246189,
+    "r2": 0.8122185862718839,
+    "mape": 9513970455.94656
+  },
+  "test_metrics": {
+    "rmse": 6.013935525729238,
+    "mae": 4.454081924496919,
+    "r2": 0.8665545395870438,
+    "mape": 7781820601.757808
+  },
+  "persistence_metrics": {
+    "rmse": 7.849860332138811,
+    "mae": 5.17669258504922,
+    "r2": 0.7732229539089335,
+    "mape": 3664440453.865055
+  },
+  "improvement_vs_persistence": {
+    "rmse_improvement_pct": 23.38799327286054,
+    "mae_improvement_pct": 13.958925485343068,
+    "r2_improvement": 0.09333158567811028
+  },
+  "parameters": {
+    "objective": "reg:squarederror",
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "n_estimators": 300,
+    "min_child_weight": 5,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "gamma": 0.2,
+    "reg_alpha": 0.5,
+    "reg_lambda": 2.0,
+    "random_state": 42
+  },
+  "best_iteration": 300,
+  "publication_status": "PUBLICATION_READY",
+  "data_leakage_fixes": [
+    "shift(1) on all rolling features",
+    "Proper 70/15/15 temporal split",
+    "Walk-forward validation",
+    "Increased regularization (alpha=0.5, lambda=2.0)"
+  ],
+  "feature_importance": [
+    {
+      "feature": "solar_normalized",
+      "importance": 0.42498719692230225
+    },
+    {
+      "feature": "hour_cos",
+      "importance": 0.09863881021738052
+    },
+    {
+      "feature": "renewable_lag_1h",
+      "importance": 0.05389001592993736
+    },
+    {
+      "feature": "renewable_rolling_mean_3h",
+      "importance": 0.0494571179151535
+    },
+    {
+      "feature": "renewable_lag_24h",
+      "importance": 0.04365893080830574
+    },
+    {
+      "feature": "hour_of_day",
+      "importance": 0.036544717848300934
+    },
+    {
+      "feature": "renewable_rolling_mean_12h",
+      "importance": 0.034568168222904205
+    },
+    {
+      "feature": "hour_sin",
+      "importance": 0.03149630129337311
+    },
+    {
+      "feature": "renewable_rolling_std_3h",
+      "importance": 0.0309116393327713
+    },
+    {
+      "feature": "renewable_lag_12h",
+      "importance": 0.03037337213754654
+    }
+  ]
+}

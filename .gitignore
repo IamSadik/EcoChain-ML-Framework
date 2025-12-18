@@ -6,3 +6,6 @@ venv/
 
 #Paperwork files
 paper/
+
+#Data files
+data/
