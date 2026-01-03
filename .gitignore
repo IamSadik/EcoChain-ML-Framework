@@ -9,3 +9,7 @@ paper/
 
 #Data files
 data/
+
+#VS Code settings
+.vscode/ 
+
