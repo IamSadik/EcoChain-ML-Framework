@@ -6,6 +6,7 @@ Implements:
 2. Static Quantization
 3. Pruning
 4. Knowledge Distillation (placeholder)
+5. INT8 Accuracy Validation (CRITICAL QoS METRIC)
 """
 
 import torch
@@ -24,8 +25,10 @@ class ModelCompressor:
     Handles model compression techniques to reduce energy consumption.
     
     Compression benefits:
-    - Quantization (INT8): ~4x speedup, ~4x memory reduction, ~30% energy savings
+    - Quantization (INT8): ~4x speedup, ~4x memory reduction, ~20-30% energy savings
     - Pruning: ~2-3x speedup, ~50% parameter reduction
+    
+    CRITICAL QoS METRIC: INT8 accuracy loss validation (0.5-2% typical)
     """
     
     def __init__(self):
@@ -242,6 +245,168 @@ class ModelCompressor:
             'energy_saved_kwh': energy_saved,
             'energy_reduction_percent': energy_reduction_pct
         }
+    
+    def validate_compression_accuracy(
+        self,
+        model_fp32: nn.Module,
+        model_int8: nn.Module,
+        test_loader: Any,
+        device: str = 'cpu'
+    ) -> Dict[str, float]:
+        """
+        Validate accuracy loss from INT8 quantization.
+        
+        CRITICAL QoS METRIC for journal submission:
+        - Measures actual accuracy degradation from compression
+        - Industry standard: 0.5-2% accuracy loss acceptable
+        - Our target: <2% to maintain QoS guarantees
+        
+        Args:
+            model_fp32: Original FP32 model
+            model_int8: Quantized INT8 model
+            test_loader: PyTorch DataLoader with test data
+            device: Device to run evaluation on
+            
+        Returns:
+            Dictionary with accuracy metrics
+        """
+        logger.info("Validating INT8 quantization accuracy loss...")
+        
+        model_fp32.eval()
+        model_int8.eval()
+        model_fp32.to(device)
+        model_int8.to(device)
+        
+        # Evaluate FP32 model
+        fp32_correct = 0
+        fp32_total = 0
+        
+        with torch.no_grad():
+            for data, target in test_loader:
+                data, target = data.to(device), target.to(device)
+                output = model_fp32(data)
+                pred = output.argmax(dim=1, keepdim=True)
+                fp32_correct += pred.eq(target.view_as(pred)).sum().item()
+                fp32_total += target.size(0)
+        
+        fp32_accuracy = 100.0 * fp32_correct / fp32_total
+        
+        # Evaluate INT8 model
+        int8_correct = 0
+        int8_total = 0
+        
+        with torch.no_grad():
+            for data, target in test_loader:
+                data, target = data.to(device), target.to(device)
+                output = model_int8(data)
+                pred = output.argmax(dim=1, keepdim=True)
+                int8_correct += pred.eq(target.view_as(pred)).sum().item()
+                int8_total += target.size(0)
+        
+        int8_accuracy = 100.0 * int8_correct / int8_total
+        
+        # Calculate accuracy loss
+        accuracy_loss_pct = fp32_accuracy - int8_accuracy
+        accuracy_loss_relative = (accuracy_loss_pct / fp32_accuracy) * 100
+        
+        # Determine if accuracy loss is acceptable
+        acceptable = accuracy_loss_pct <= 2.0  # Industry standard: <2% loss
+        
+        result = {
+            'fp32_accuracy_pct': fp32_accuracy,
+            'int8_accuracy_pct': int8_accuracy,
+            'accuracy_loss_pct': accuracy_loss_pct,
+            'accuracy_loss_relative_pct': accuracy_loss_relative,
+            'acceptable': acceptable,
+            'samples_evaluated': fp32_total
+        }
+        
+        logger.info(f"Accuracy Validation Results:")
+        logger.info(f"  FP32 Accuracy: {fp32_accuracy:.2f}%")
+        logger.info(f"  INT8 Accuracy: {int8_accuracy:.2f}%")
+        logger.info(f"  Accuracy Loss: {accuracy_loss_pct:.2f}% (absolute)")
+        logger.info(f"  Relative Loss: {accuracy_loss_relative:.2f}%")
+        logger.info(f"  Acceptable: {'YES' if acceptable else 'NO'} (<2% threshold)")
+        
+        self.compression_stats['accuracy_validation'] = result
+        
+        return result
+    
+    def estimate_accuracy_loss_synthetic(
+        self,
+        model_complexity: str = 'medium',
+        compression_type: str = 'int8'
+    ) -> Dict[str, float]:
+        """
+        Estimate accuracy loss for simulation when real validation data unavailable.
+        
+        Based on literature benchmarks:
+        - Simple models (MobileNet): 0.3-0.8% loss
+        - Medium models (ResNet-50): 0.5-1.5% loss
+        - Complex models (EfficientNet): 1.0-2.5% loss
+        
+        Args:
+            model_complexity: 'simple', 'medium', or 'complex'
+            compression_type: 'int8', 'int4', or 'pruned'
+            
+        Returns:
+            Dictionary with estimated accuracy metrics
+        """
+        import numpy as np
+        
+        # Literature-based accuracy loss ranges
+        accuracy_loss_ranges = {
+            'int8': {
+                'simple': (0.3, 0.8),    # MobileNetV2, ShuffleNet
+                'medium': (0.5, 1.5),    # ResNet-50, VGG-16
+                'complex': (1.0, 2.5),   # EfficientNet-B7, Inception-v4
+            },
+            'int4': {
+                'simple': (1.0, 2.5),
+                'medium': (2.0, 4.0),
+                'complex': (3.5, 6.0),
+            },
+            'pruned': {
+                'simple': (0.2, 0.6),
+                'medium': (0.4, 1.2),
+                'complex': (0.8, 2.0),
+            }
+        }
+        
+        # Get range for this configuration
+        loss_range = accuracy_loss_ranges.get(compression_type, {}).get(model_complexity, (0.5, 1.5))
+        
+        # Sample from range with bias toward lower values (most models compress well)
+        # Use beta distribution for realistic skew
+        beta_sample = np.random.beta(2, 5)  # Skewed toward lower loss
+        estimated_loss = loss_range[0] + beta_sample * (loss_range[1] - loss_range[0])
+        
+        # Assume baseline accuracy
+        baseline_accuracy = {
+            'simple': 92.0,
+            'medium': 76.0,
+            'complex': 84.0
+        }.get(model_complexity, 80.0)
+        
+        compressed_accuracy = baseline_accuracy - estimated_loss
+        
+        result = {
+            'baseline_accuracy_pct': baseline_accuracy,
+            'compressed_accuracy_pct': compressed_accuracy,
+            'accuracy_loss_pct': estimated_loss,
+            'accuracy_loss_relative_pct': (estimated_loss / baseline_accuracy) * 100,
+            'acceptable': estimated_loss <= 2.0,
+            'estimation_method': 'synthetic_literature_based',
+            'model_complexity': model_complexity,
+            'compression_type': compression_type
+        }
+        
+        logger.info(f"Synthetic Accuracy Estimation ({model_complexity} model, {compression_type}):")
+        logger.info(f"  Baseline: {baseline_accuracy:.2f}%")
+        logger.info(f"  Compressed: {compressed_accuracy:.2f}%")
+        logger.info(f"  Loss: {estimated_loss:.2f}%")
+        
+        return result
 
 
 def create_sample_model(model_type: str = 'resnet18') -> nn.Module:

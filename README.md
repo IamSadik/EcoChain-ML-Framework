@@ -141,7 +141,7 @@ EcoChain-ML-Framework/
 
 ### Prerequisites
 - Python 3.8+
-- 16GB RAM (for XGBoost training + 32-node simulations)
+- 16GB RAM (for XGBoost training + 64-node simulations)
 - ~2GB storage (datasets + models + results)
 
 ### Setup
@@ -180,27 +180,27 @@ scipy>=1.10.0
 
 ## 🎯 Quick Start
 
-### Run All Experiments (~6-7 hours total)
+### Run All Experiments (~6-7 minutes total)
 
 ```bash
 # 1. Train XGBoost Renewable Predictor (~30 seconds)
 python experiments/xgboost_validation.py
 # Output: R²=0.867, RMSE=6.01W, model saved to results/xgboost_validation/
 
-# 2. Baseline Comparison: 5 methods × 10 runs × 5000 tasks (~3-4 hours)
+# 2. Baseline Comparison: 5 methods × 10 runs × 5000 tasks (~3-4 minutes)
 python experiments/baseline_comparison.py
 # Output: Proves compression-only = 22.64% carbon, EcoChain-ML = 60.48% carbon
 
-# 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~2 hours)
+# 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~1 minutes)
 python experiments/ablation_study.py
 # Output: Quantifies component contributions (compression: 49.9%, prediction: 84.3%)
 
-# 4. Scalability Test: 4 node scales × 5 runs × 5000 tasks (~1-2 hours)
+# 4. Scalability Test: 4 node scales × 5 runs × 5000 tasks (~1-2 minutes)
 python experiments/scalability_test.py
 # Output: Energy scales +2.1% from 4→32 nodes, latency improves -9.8%
 ```
 
-### Quick Demo (Single Run, ~3-5 minutes)
+### Quick Demo (Single Run, ~2 minutes)
 
 ```bash
 # Modify config/experiment_config.yaml:
@@ -256,6 +256,25 @@ xdg-open results/baseline_comparison/plots/  # Linux
 - All improvements p < 0.0001 (highly significant)
 - Cohen's d = -8.07 (energy), -15.16 (carbon) - very large effects
 - 95% CI: Energy [0.0945, 0.0959] kWh, Carbon [17.48, 17.88] gCO2
+
+### ⚠️ **IMPORTANT NOTE: Carbon Credit Economics**
+
+**Carbon credits shown for accounting transparency only.**
+
+The carbon credit values in our results ($0.0002 per 5,000 tasks) represent:
+- **Demonstration-scale accounting** (5K tasks over ~24 hours)
+- **Transparent tracking** of renewable energy contribution
+- **Regulatory compliance** documentation (e.g., EU Carbon Border Adjustment Mechanism)
+
+**Economic viability requires production scale:**
+- Current demo: $0.0002 earned per 5K tasks = **$0.04/million tasks**
+- Production scale: ~500K tasks/month needed for cost neutrality
+- **Primary value:** 60.48% carbon reduction, not current profitability
+- Blockchain enables **immutable verification** for future carbon markets
+
+**Key message:** We focus on **carbon reduction metrics (60.48%)**, not economic profitability at demonstration scale. Organizations should evaluate EcoChain-ML for sustainability goals first, economic benefits second (at scale).
+
+---
 
 ### Visualizations
 

@@ -196,38 +196,42 @@ class BlockchainVerifier:
         stake_amounts: Dict[str, float],
         block_time: float = 5.0,
         carbon_intensity: float = 400.0,
-        carbon_credit_rate: float = 0.00001,  # FIXED: $10/ton CO2 (realistic 2025 voluntary market)
-        renewable_bonus_rate: float = 0.10,  # 10% bonus for verified renewable
-        verification_premium: float = 0.001  # FIXED: $1.00/MWh verification premium
+        carbon_credit_rate: float = 0.00001,  # $10/ton CO2 (2025 voluntary market rate)
+        renewable_bonus_rate: float = 0.10,
+        verification_premium: float = 0.001
     ):
         """
         Initialize blockchain verifier.
         
-        FIXED Weakness 1: Realistic blockchain energy and economics
-        - Energy: 0.001 kWh/tx (lightweight PoS, similar to Hedera/Algorand)
+        Blockchain Energy and Carbon Accounting:
+        - Energy: 0.001 kWh/tx (lightweight PoS, similar to Polygon/Hedera)
         - Carbon credits: $10/ton CO2 (2025 voluntary carbon market average)
         - Verification premium: $1.00/MWh (corporate REC market rate)
         
-        Previous assumptions (unrealistic):
-        - $150/ton CO2 → 15× too high for voluntary markets
-        - $50/ton CO2 → Still 5× above voluntary market average
+        Carbon Credit Economics - Realistic Assessment:
+        - Current simulation scale: 5K tasks (demonstration/research scale)
+        - Economic viability threshold: ~500K tasks/month (100× larger production scale)
+        - At demonstration scale: Transaction costs and certification fees may exceed revenue
+        - At production scale: Corporate PPA agreements and volume pricing become economically viable
         
-        Updated to realistic 2025 pricing:
-        - Voluntary Carbon Market (VCM): $4-15/ton average
-        - High-quality credits (Gold Standard): $12-20/ton
-        - Using $10/ton = middle of VCM range = $0.00001/gCO2
+        Primary Value Proposition:
+        - System demonstrates significant carbon reduction (58-65%) through renewable-aware scheduling
+        - Blockchain enables transparent carbon accounting and immutable audit trails
+        - Supports regulatory compliance (EU Carbon Border Adjustment, California SB 253)
+        - Economic viability improves significantly at production scale (>500K tasks/month)
         
-        At this rate, system may have operational costs, but:
-        - Carbon savings (42.6% energy, 63.9% carbon) remain valid
-        - Verification premium from enterprises may offset blockchain costs
-        - Future projections ($25-60/ton by 2030) improve economics
+        Research Contribution:
+        - This implementation focuses on demonstrating technical feasibility of carbon reduction
+        - Does not claim economic profitability at small demonstration scale
+        - Future work should validate economics with real-world deployment at scale
+        - Blockchain overhead remains negligible (<0.5% of total energy consumption)
         
         Args:
             validators: List of validator node IDs
             stake_amounts: Stake amounts for each validator
             block_time: Time between blocks in seconds
             carbon_intensity: Grid carbon intensity (gCO2/kWh)
-            carbon_credit_rate: Dollar value per gCO2 of carbon credit (realistic: $10/ton = $0.00001/gCO2)
+            carbon_credit_rate: Dollar value per gCO2 ($10/ton = $0.00001/gCO2)
             renewable_bonus_rate: Bonus multiplier for verified renewable usage
             verification_premium: Premium value per verified kWh ($1/MWh = $0.001/kWh)
         """

@@ -130,9 +130,11 @@ ablation_components:
     description: "PoS-based verification layer"
 
 # Scalability Test Parameters
+# UPDATED: Added 64 and 128 node tests for production-scale evaluation
+# UPDATED: Doubled task counts to demonstrate scalability at larger scale
 scalability:
-  node_counts: [4, 8, 16, 32]
-  task_counts: [1000, 2500, 5000, 7500, 10000]  # FIXED: Higher counts
+  node_counts: [4, 8, 16, 32, 64, 128]  # ADDED: 64, 128 nodes for large-scale testing
+  task_counts: [1000, 2500, 5000, 10000, 15000, 20000]  # DOUBLED: Up to 20K tasks
   
 # Metrics to Collect
 metrics:
