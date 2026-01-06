@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-01-06T20:39:57.026080",
+  "configuration": {
+    "num_runs": 3,
+    "num_tasks": 500,
+    "methods": [
+      "standard",
+      "ecochain_ml"
+    ]
+  },
+  "raw_results": {
+    "standard": [
+      {
+        "total_energy_kwh": 0.010483387854048508,
+        "total_carbon_gco2": 4.165446765083739,
+        "avg_latency_sec": 4.8076484740448615,
+        "renewable_percent": 0.6655381095359912
+      },
+      {
+        "total_energy_kwh": 0.010513552621924022,
+        "total_carbon_gco2": 4.130099633680408,
+        "avg_latency_sec": 4.437883057299093,
+        "renewable_percent": 1.7910552645195483
+      },
+      {
+        "total_energy_kwh": 0.008981018476514191,
+        "total_carbon_gco2": 3.5428313854352913,
+        "avg_latency_sec": 5.0954422728798905,
+        "renewable_percent": 1.3800218009802934
+      }
+    ],
+    "ecochain_ml": [
+      {
+        "total_energy_kwh": 0.0027277475863487183,
+        "total_carbon_gco2": 1.0092296060846575,
+        "avg_latency_sec": 2.431888863259788,
+        "renewable_percent": 7.503391155449418
+      },
+      {
+        "total_energy_kwh": 0.003172311958940859,
+        "total_carbon_gco2": 1.0799999999999996,
+        "avg_latency_sec": 2.691852940454992,
+        "renewable_percent": 14.888572279586064
+      },
+      {
+        "total_energy_kwh": 0.0028237126395902067,
+        "total_carbon_gco2": 0.9999999999999999,
+        "avg_latency_sec": 2.9009454136711894,
+        "renewable_percent": 11.464078711535832
+      }
+    ]
+  },
+  "validation_summary": {
+    "cov": 8.4068377584832,
+    "cohens_d": 11.047600422721848,
+    "improvement": 70.8993791114784,
+    "p_value": 0.00017268128190312456,
+    "ready": false,
+    "t_statistic": 13.530491958912135,
+    "standard_mean": 0.00999265298416224,
+    "standard_std": 0.0008762309975705485,
+    "ecochain_mean": 0.002907924061626595,
+    "ecochain_std": 0.00023394025529096943
+  }
+}
