@@ -1,0 +1,99 @@
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+\section{Physics-Based Renewable Energy Models}
+
+This document details the mathematical models used to convert raw meteorological data (from NASA POWER) into estimated power generation metrics for the EcoChain framework.
+
+\subsection{Photovoltaic (Solar) Power Generation}
+
+The solar power output $P_{pv}$ is calculated using the following model:
+
+\begin{equation}
+    P_{pv} = \eta_{pv} \cdot A_{pv} \cdot G_{irr} \cdot (1 - \beta (T_{cell} - T_{ref}))
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $P_{pv}$: Power output (Watts)
+    \item $\eta_{pv}$: Module efficiency (assumed 18\%)
+    \item $A_{pv}$: Total array area ($m^2$)
+    \item $G_{irr}$: Global Horizontal Irradiance ($W/m^2$) [Source: \texttt{ALLSKY\_SFC\_SW\_DWN}]
+    \item $\beta$: Temperature coefficient of power (typically 0.004 $^\circ C^{-1}$)
+    \item $T_{ref}$: Reference temperature ($25^\circ C$)
+\end{itemize}
+
+The cell temperature $T_{cell}$ is estimated from ambient temperature and irradiance:
+
+\begin{equation}
+    T_{cell} = T_{amb} + \left( \frac{NOCT - 20}{800} \right) \cdot G_{irr}
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $T_{amb}$: Ambient air temperature ($^\circ C$) [Source: \texttt{T2M}]
+    \item $NOCT$: Nominal Operating Cell Temperature ($45^\circ C$)
+\end{itemize}
+
+\subsection{Wind Turbine Power Generation}
+
+The wind power output $P_{wind}$ is governed by the kinetic energy of the air mass:
+
+\begin{equation}
+    P_{wind} = \frac{1}{2} \rho A_{rotor} v^3 C_p(\lambda, \theta)
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $\rho$: Air density ($kg/m^3$)
+    \item $A_{rotor}$: Swept area of the rotor ($m^2$)
+    \item $v$: Wind speed at hub height ($m/s$)
+    \item $C_p$: Power coefficient (Betz limit theoretical max is 0.593, practical max $\approx 0.4$)
+\end{itemize}
+
+\subsubsection{Air Density Correction}
+Air density $\rho$ is calculated using the ideal gas law:
+
+\begin{equation}
+    \rho = \frac{P_{atm}}{R_{specific} \cdot T_K}
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $P_{atm}$: Atmospheric pressure (Pa) [Source: \texttt{PS} (converted from kPa)]
+    \item $R_{specific}$: Specific gas constant for dry air ($287.058 J/(kg \cdot K)$)
+    \item $T_K$: Temperature in Kelvin ($T_{amb} + 273.15$)
+\end{itemize}
+
+\subsubsection{Wind Speed Height Correction}
+Since wind speed is provided at 10m ($v_{10}$) or 50m ($v_{50}$) and turbines operate higher, the Power Law is used:
+
+\begin{equation}
+    v_{hub} = v_{ref} \cdot \left( \frac{h_{hub}}{h_{ref}} \right)^\alpha
+\end{equation}
+
+Where $\alpha$ is the shear exponent (typically 0.143 for open terrain).
+
+\subsubsection{Operational Constraints}
+The theoretical wind power is constrained by the turbine's operational limits:
+
+\begin{equation}
+    P_{final} = 
+    \begin{cases} 
+    0 & v_{hub} < v_{cut-in} \text{ or } v_{hub} > v_{cut-out} \\
+    P_{wind} & v_{cut-in} \le v_{hub} < v_{rated} \\
+    P_{rated} & v_{hub} \ge v_{rated}
+    \end{cases}
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $v_{cut-in}$: Minimum speed to generate power (3.0 m/s)
+    \item $v_{rated}$: Speed at which rated power is reached (12.0 m/s)
+    \item $v_{cut-out}$: Maximum safe operating speed (25.0 m/s)
+\end{itemize}
+
+\end{document}
+

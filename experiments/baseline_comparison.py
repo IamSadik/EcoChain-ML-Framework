@@ -57,6 +57,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class NumpyEncoder(json.JSONEncoder):
+    """Special json encoder for numpy types"""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
+
 class BaselineComparison:
     """Conducts baseline comparison experiments with statistical significance testing."""
     
@@ -264,8 +276,12 @@ class BaselineComparison:
                 
                 # Calculate confidence interval
                 n = len(numeric_values)
-                sem = std_val / np.sqrt(n)  # Standard error of mean
-                ci = stats.t.interval(self.confidence_level, n-1, loc=mean_val, scale=sem)
+                
+                if n < 2 or std_val == 0:
+                    ci = (mean_val, mean_val)
+                else:
+                    sem = std_val / np.sqrt(n)  # Standard error of mean
+                    ci = stats.t.interval(self.confidence_level, n-1, loc=mean_val, scale=sem)
                 
                 aggregate[key] = mean_val
                 aggregate[f"{key}_std"] = std_val
@@ -277,10 +293,10 @@ class BaselineComparison:
                 aggregate[key] = runs[0][key]
         
         logger.info(f"\nAggregate metrics calculated:")
-        logger.info(f"  Total Energy: {aggregate['total_energy_kwh']:.4f} ± {aggregate['total_energy_kwh_std']:.4f} kWh")
-        logger.info(f"  Carbon Emissions: {aggregate['total_carbon_gco2']:.2f} ± {aggregate['total_carbon_gco2_std']:.2f} gCO2")
-        logger.info(f"  Avg Latency: {aggregate['avg_latency_sec']:.4f} ± {aggregate['avg_latency_sec_std']:.4f} sec")
-        logger.info(f"  Renewable Usage: {aggregate['renewable_percent']:.2f} ± {aggregate['renewable_percent_std']:.2f}%")
+        logger.info(f"  Total Energy: {aggregate['total_energy_kwh']:.4f} \u00b1 {aggregate['total_energy_kwh_std']:.4f} kWh")
+        logger.info(f"  Carbon Emissions: {aggregate['total_carbon_gco2']:.2f} \u00b1 {aggregate['total_carbon_gco2_std']:.2f} gCO2")
+        logger.info(f"  Avg Latency: {aggregate['avg_latency_sec']:.4f} \u00b1 {aggregate['avg_latency_sec_std']:.4f} sec")
+        logger.info(f"  Renewable Usage: {aggregate['renewable_percent']:.2f} \u00b1 {aggregate['renewable_percent_std']:.2f}%")
         
         return aggregate
     
@@ -366,21 +382,12 @@ class BaselineComparison:
         # Save aggregate results
         output_file = self.metrics_dir / f"{method}_metrics.json"
         with open(output_file, 'w') as f:
-            # Convert numpy types to native Python types for JSON serialization
-            json_results = {}
-            for key, value in self.results[method].items():
-                if isinstance(value, (np.integer, np.floating)):
-                    json_results[key] = float(value)
-                elif isinstance(value, list):
-                    json_results[key] = [float(v) if isinstance(v, (np.integer, np.floating)) else v for v in value]
-                else:
-                    json_results[key] = value
-            json.dump(json_results, f, indent=2)
+            json.dump(self.results[method], f, indent=2, cls=NumpyEncoder)
         
         # FIXED: Save all individual run results
         all_runs_file = self.metrics_dir / f"{method}_all_runs.json"
         with open(all_runs_file, 'w') as f:
-            json.dump(self.multi_run_results[method], f, indent=2)
+            json.dump(self.multi_run_results[method], f, indent=2, cls=NumpyEncoder)
         
         logger.info(f"Saved aggregate metrics to {output_file}")
         logger.info(f"Saved all runs to {all_runs_file}")

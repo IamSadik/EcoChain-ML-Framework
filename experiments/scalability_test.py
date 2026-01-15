@@ -159,17 +159,17 @@ class ScalabilityTest:
             
             # Calculate simulated duration from task arrival times
             if simulator.tasks_generated:
-                simulated_duration_hours = max(t.arrival_time for t in simulator.tasks_generated)
+                simulated_duration_hours = float(max(t.arrival_time for t in simulator.tasks_generated))
             else:
                 simulated_duration_hours = 1.0
             
             # Store metrics
-            metrics['execution_time_sec'] = execution_time
-            metrics['num_nodes'] = num_nodes
+            metrics['execution_time_sec'] = float(execution_time)
+            metrics['num_nodes'] = int(num_nodes)
             metrics['simulated_duration_hours'] = simulated_duration_hours
             
             # Calculate throughput - real metric from simulation
-            metrics['throughput_tasks_per_hour'] = (
+            metrics['throughput_tasks_per_hour'] = float(
                 metrics['tasks_completed'] / simulated_duration_hours 
                 if simulated_duration_hours > 0 else 0
             )
@@ -252,20 +252,20 @@ class ScalabilityTest:
             
             # Calculate simulated duration
             if simulator.tasks_generated:
-                simulated_duration_hours = max(t.arrival_time for t in simulator.tasks_generated)
+                simulated_duration_hours = float(max(t.arrival_time for t in simulator.tasks_generated))
             else:
                 simulated_duration_hours = 1.0
             
-            metrics['execution_time_sec'] = execution_time
-            metrics['workload_size'] = workload_size
+            metrics['execution_time_sec'] = float(execution_time)
+            metrics['workload_size'] = int(workload_size)
             metrics['simulated_duration_hours'] = simulated_duration_hours
-            metrics['throughput_tasks_per_hour'] = (
+            metrics['throughput_tasks_per_hour'] = float(
                 metrics['tasks_completed'] / simulated_duration_hours 
                 if simulated_duration_hours > 0 else 0
             )
             
             # Calculate energy per task (should be relatively constant)
-            metrics['energy_per_task_kwh'] = (
+            metrics['energy_per_task_kwh'] = float(
                 metrics['total_energy_kwh'] / metrics['tasks_completed']
                 if metrics['tasks_completed'] > 0 else 0
             )
@@ -322,14 +322,14 @@ class ScalabilityTest:
             
             # Calculate simulated duration
             if simulator.tasks_generated:
-                simulated_duration_hours = max(t.arrival_time for t in simulator.tasks_generated)
+                simulated_duration_hours = float(max(t.arrival_time for t in simulator.tasks_generated))
             else:
                 simulated_duration_hours = 1.0
             
-            metrics['execution_time_sec'] = execution_time
-            metrics['arrival_rate'] = arrival_rate
+            metrics['execution_time_sec'] = float(execution_time)
+            metrics['arrival_rate'] = float(arrival_rate)
             metrics['simulated_duration_hours'] = simulated_duration_hours
-            metrics['throughput_tasks_per_hour'] = (
+            metrics['throughput_tasks_per_hour'] = float(
                 metrics['tasks_completed'] / simulated_duration_hours 
                 if simulated_duration_hours > 0 else 0
             )
@@ -346,23 +346,43 @@ class ScalabilityTest:
             # Save intermediate results
             self._save_arrival_rate_scaling_results()
     
+    def _convert_to_serializable(self, obj):
+        """Convert numpy types to native Python types for JSON serialization."""
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {k: self._convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_to_serializable(v) for v in obj]
+        return obj
+
     def _save_node_scaling_results(self):
         """Save node scaling results."""
         output_file = self.metrics_dir / 'node_scaling_results.json'
+        # Convert to serializable format
+        serializable_results = self._convert_to_serializable(self.results['node_scaling'])
         with open(output_file, 'w') as f:
-            json.dump(self.results['node_scaling'], f, indent=2)
+            json.dump(serializable_results, f, indent=2)
     
     def _save_workload_scaling_results(self):
         """Save workload scaling results."""
         output_file = self.metrics_dir / 'workload_scaling_results.json'
+        # Convert to serializable format
+        serializable_results = self._convert_to_serializable(self.results['workload_scaling'])
         with open(output_file, 'w') as f:
-            json.dump(self.results['workload_scaling'], f, indent=2)
+            json.dump(serializable_results, f, indent=2)
     
     def _save_arrival_rate_scaling_results(self):
         """Save arrival rate scaling results."""
         output_file = self.metrics_dir / 'arrival_rate_scaling_results.json'
+        # Convert to serializable format
+        serializable_results = self._convert_to_serializable(self.results['arrival_rate_scaling'])
         with open(output_file, 'w') as f:
-            json.dump(self.results['arrival_rate_scaling'], f, indent=2)
+            json.dump(serializable_results, f, indent=2)
     
     def _generate_scalability_plots(self):
         """Generate scalability plots."""

@@ -47,16 +47,26 @@ class XGBoostRenewablePredictor:
             self.xgb_available = True
             
             # Try to load pre-trained model (FIXED version)
-            model_path = Path("results/xgboost_validation/xgboost_model.pkl")
+            # Use absolute path resolution
+            current_dir = Path(__file__).parent.resolve()
+            # Navigate up from src/scheduler to project root
+            project_root = current_dir.parent.parent
+            model_path = project_root / "results/xgboost_validation/xgboost_model.pkl"
+            
             if model_path.exists():
-                with open(model_path, 'rb') as f:
-                    self.model = pickle.load(f)
-                self.is_trained = True
-                logger.info("Loaded FIXED XGBoost model (R²=0.70-0.85, NO LEAKAGE)")
+                try:
+                    with open(model_path, 'rb') as f:
+                        self.model = pickle.load(f)
+                    self.is_trained = True
+                    logger.info(f"Loaded FIXED XGBoost model from {model_path} (R²=0.70-0.85, NO LEAKAGE)")
+                except Exception as e:
+                    self.model = None
+                    self.is_trained = False
+                    logger.error(f"Failed to load XGBoost model from {model_path}: {e}")
             else:
                 self.model = None
                 self.is_trained = False
-                logger.warning("Pre-trained XGBoost model not found. Run xgboost_validation.py first.")
+                logger.warning(f"Pre-trained XGBoost model not found at {model_path}. Run xgboost_validation.py first.")
                 
         except ImportError:
             self.xgb_available = False
@@ -70,7 +80,8 @@ class XGBoostRenewablePredictor:
         recent_solar_power: List[float],
         recent_wind_power: List[float],
         solar_capacity: float = 150,
-        wind_capacity: float = 120
+        wind_capacity: float = 120,
+        weather_features: Optional[Dict[str, float]] = None
     ) -> float:
         """
         Predict renewable energy availability for the next hour.
@@ -83,6 +94,7 @@ class XGBoostRenewablePredictor:
             recent_wind_power: Recent wind power readings (last 24+ hours)
             solar_capacity: Solar panel capacity in Watts
             wind_capacity: Wind turbine capacity in Watts
+            weather_features: Dictionary of current weather observations/forecasts
             
         Returns:
             Predicted renewable energy percentage (0-100) for next hour
@@ -117,9 +129,10 @@ class XGBoostRenewablePredictor:
         
         # CRITICAL FIX: Rolling statistics use PAST data only (exclude current hour)
         # In training, we used shift(1) before rolling, so we replicate that here
-        rolling_mean_3h = np.mean(recent_renewable[-4:-1])  # Use t-1, t-2, t-3 (NOT t)
-        rolling_std_3h = np.std(recent_renewable[-4:-1])
-        rolling_mean_12h = np.mean(recent_renewable[-13:-1])  # Use t-1 to t-12 (NOT t)
+        # FIX: Slicing must include the most recent past value (-1) to match training's shift(1).rolling()
+        rolling_mean_3h = np.mean(recent_renewable[-3:])   # Use t-1, t-2, t-3
+        rolling_std_3h = np.std(recent_renewable[-3:])
+        rolling_mean_12h = np.mean(recent_renewable[-12:]) # Use t-1 to t-12
         
         # Cyclical time encoding
         hour_sin = np.sin(2 * np.pi * hour_of_day / 24)
@@ -131,16 +144,47 @@ class XGBoostRenewablePredictor:
         solar_normalized = recent_solar_power[-2] / solar_capacity  # t-1, not t
         wind_normalized = recent_wind_power[-2] / wind_capacity    # t-1, not t
         
-        # Assemble feature vector (must match training order)
-        features = np.array([[
+        # Prepare raw weather features (defaults if missing)
+        w = weather_features or {}
+        # Default values based on averages if not provided
+        wd_deg = w.get('WD10M', 180.0)
+        wd10m_x = np.cos(np.deg2rad(wd_deg))
+        wd10m_y = np.sin(np.deg2rad(wd_deg))
+        
+        # Assemble feature vector (must match training order in xgboost_validation.py)
+        # feature_cols = [
+        #    'hour_of_day', 'day_of_week',
+        #    'hour_sin', 'hour_cos', 'day_sin', 'day_cos',
+        #    'solar_normalized', 'wind_normalized',
+        #    'renewable_lag_1h', 'renewable_lag_2h', 'renewable_lag_3h',
+        #    'renewable_lag_6h', 'renewable_lag_12h', 'renewable_lag_24h',
+        #    'renewable_rolling_mean_3h', 'renewable_rolling_std_3h',
+        #    'renewable_rolling_mean_12h',
+        #    'ALLSKY_SFC_SW_DWN', 'T2M', 'WS10M', 'wd10m_x', 'wd10m_y', 
+        #    'PS', 'ALLSKY_SFC_UV_INDEX'
+        # ]
+        # NOTE: RH2M is missing from current NREL dataset, so it was excluded from training.
+        # We must exclude it here too to match shape (24 features).
+        
+        features_list = [
             hour_of_day, day_of_week,
             hour_sin, hour_cos, day_sin, day_cos,
             solar_normalized, wind_normalized,
-            renewable_1h / 100, renewable_2h / 100, renewable_3h / 100,
-            renewable_6h / 100, renewable_12h / 100, renewable_24h / 100,
-            rolling_mean_3h / 100, rolling_std_3h / 100,
-            rolling_mean_12h / 100
-        ]])
+            renewable_1h, renewable_2h, renewable_3h,
+            renewable_6h, renewable_12h, renewable_24h,
+            rolling_mean_3h, rolling_std_3h,
+            rolling_mean_12h,
+            # Raw weather features
+            w.get('ALLSKY_SFC_SW_DWN', 0.0), # Irradiance
+            w.get('T2M', 20.0),              # Temperature
+            w.get('WS10M', 5.0),             # Wind Speed
+            wd10m_x,                         # Wind Dir X
+            wd10m_y,                         # Wind Dir Y
+            w.get('PS', 100.0),              # Pressure
+            w.get('ALLSKY_SFC_UV_INDEX', 0.0)# UV Index
+        ]
+        
+        features = np.array([features_list])
         
         # Predict
         try:
@@ -211,13 +255,13 @@ class RenewablePredictor:
         
         logger.info(f"Initialized RenewablePredictor with XGBoost backend (R²=0.70-0.85)")
     
-    def predict(self, recent_data: np.ndarray) -> float:
+    def predict(self, recent_data: np.ndarray, weather_features: Optional[Dict[str, float]] = None) -> float:
         """
         Predict renewable energy availability (backward-compatible interface).
         
         Args:
-            recent_data: Array of shape (lookback_hours, 5) with normalized features:
-                [hour, day_of_week, solar_norm, wind_norm, renewable_pct]
+            recent_data: Array of shape (lookback_hours, 5) with normalized features.
+            weather_features: Optional dictionary of current weather features.
         
         Returns:
             Predicted renewable energy percentage (0-100)
@@ -245,7 +289,8 @@ class RenewablePredictor:
             recent_solar_power=recent_solar.tolist(),
             recent_wind_power=recent_wind.tolist(),
             solar_capacity=solar_capacity,
-            wind_capacity=wind_capacity
+            wind_capacity=wind_capacity,
+            weather_features=weather_features
         )
         
         return prediction

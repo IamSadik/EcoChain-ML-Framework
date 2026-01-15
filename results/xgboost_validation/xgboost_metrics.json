@@ -1,98 +1,98 @@
 {
   "model": "XGBoost (NO DATA LEAKAGE)",
-  "training_samples": 1495,
-  "validation_samples": 320,
-  "test_samples": 321,
+  "training_samples": 6635,
+  "validation_samples": 1422,
+  "test_samples": 1422,
   "train_metrics": {
-    "rmse": 3.9679519642855325,
-    "mae": 2.9245045291759055,
-    "r2": 0.9578099023255917,
-    "mape": 1505530406.7123494
+    "rmse": 6.824826992533022,
+    "mae": 3.477331335316734,
+    "r2": 0.9579729687527996,
+    "mape": 7.784775324162455
   },
   "val_metrics": {
-    "rmse": 5.6197780211080985,
-    "mae": 4.050011884246189,
-    "r2": 0.8122185862718839,
-    "mape": 9513970455.94656
+    "rmse": 12.221164238220847,
+    "mae": 7.341867124638998,
+    "r2": 0.8962346024857695,
+    "mape": 15.36353084798231
   },
   "test_metrics": {
-    "rmse": 6.013935525729238,
-    "mae": 4.454081924496919,
-    "r2": 0.8665545395870438,
-    "mape": 7781820601.757808
+    "rmse": 11.410854437511114,
+    "mae": 6.026452223052595,
+    "r2": 0.8944550925004483,
+    "mape": 9.076866029381044
   },
   "persistence_metrics": {
-    "rmse": 7.849860332138811,
-    "mae": 5.17669258504922,
-    "r2": 0.7732229539089335,
-    "mape": 3664440453.865055
+    "rmse": 12.033484761086687,
+    "mae": 5.22168511930996,
+    "r2": 0.8826610215411625,
+    "mape": 9.364111811312478
   },
   "improvement_vs_persistence": {
-    "rmse_improvement_pct": 23.38799327286054,
-    "mae_improvement_pct": 13.958925485343068,
-    "r2_improvement": 0.09333158567811028
+    "rmse_improvement_pct": 5.174148103706459,
+    "mae_improvement_pct": -15.412019019809911,
+    "r2_improvement": 0.011794070959285752
   },
   "parameters": {
     "objective": "reg:squarederror",
-    "max_depth": 6,
-    "learning_rate": 0.05,
-    "n_estimators": 300,
-    "min_child_weight": 5,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "gamma": 0.2,
-    "reg_alpha": 0.5,
-    "reg_lambda": 2.0,
+    "max_depth": 4,
+    "learning_rate": 0.03,
+    "n_estimators": 500,
+    "min_child_weight": 10,
+    "subsample": 0.7,
+    "colsample_bytree": 0.7,
+    "gamma": 0.5,
+    "reg_alpha": 1.0,
+    "reg_lambda": 3.0,
     "random_state": 42
   },
-  "best_iteration": 300,
+  "best_iteration": 500,
   "publication_status": "PUBLICATION_READY",
   "data_leakage_fixes": [
     "shift(1) on all rolling features",
     "Proper 70/15/15 temporal split",
     "Walk-forward validation",
-    "Increased regularization (alpha=0.5, lambda=2.0)"
+    "Increased regularization (alpha=1.0, lambda=3.0)"
   ],
   "feature_importance": [
     {
-      "feature": "solar_normalized",
-      "importance": 0.42498719692230225
-    },
-    {
-      "feature": "hour_cos",
-      "importance": 0.09863881021738052
-    },
-    {
       "feature": "renewable_lag_1h",
-      "importance": 0.05389001592993736
+      "importance": 0.3513297736644745
     },
     {
-      "feature": "renewable_rolling_mean_3h",
-      "importance": 0.0494571179151535
+      "feature": "ALLSKY_SFC_SW_DWN",
+      "importance": 0.14733658730983734
     },
     {
-      "feature": "renewable_lag_24h",
-      "importance": 0.04365893080830574
+      "feature": "WS10M",
+      "importance": 0.11893167346715927
+    },
+    {
+      "feature": "ALLSKY_SFC_UV_INDEX",
+      "importance": 0.11621130257844925
+    },
+    {
+      "feature": "renewable_lag_2h",
+      "importance": 0.03994894400238991
     },
     {
       "feature": "hour_of_day",
-      "importance": 0.036544717848300934
-    },
-    {
-      "feature": "renewable_rolling_mean_12h",
-      "importance": 0.034568168222904205
+      "importance": 0.03236683830618858
     },
     {
       "feature": "hour_sin",
-      "importance": 0.03149630129337311
+      "importance": 0.03201504424214363
     },
     {
-      "feature": "renewable_rolling_std_3h",
-      "importance": 0.0309116393327713
+      "feature": "wind_normalized",
+      "importance": 0.028928859159350395
     },
     {
-      "feature": "renewable_lag_12h",
-      "importance": 0.03037337213754654
+      "feature": "renewable_rolling_mean_3h",
+      "importance": 0.026589680463075638
+    },
+    {
+      "feature": "hour_cos",
+      "importance": 0.02452678233385086
     }
   ]
 }

@@ -52,6 +52,32 @@ if not nrel_data_path.exists():
 df = pd.read_csv(nrel_data_path)
 print(f"   ✅ Loaded {len(df)} hours ({len(df)//24} days) of NREL data")
 
+# Preprocessing: Align column names and calculate derived features
+print("\n   ⚙️  Preprocessing data...")
+# Convert datetime to proper format if needed
+if 'datetime' in df.columns:
+    df['datetime'] = pd.to_datetime(df['datetime'])
+
+# Map columns from process_nasa_data.py output
+df['solar_power_w'] = df['solar_power_watts']
+df['wind_power_w'] = df['wind_power_watts']
+
+# Decompose Wind Direction (0-360) into Sin/Cos for better ML performance
+if 'WD10M' in df.columns:
+    df['wd10m_x'] = np.cos(np.deg2rad(df['WD10M']))
+    df['wd10m_y'] = np.sin(np.deg2rad(df['WD10M']))
+
+# Calculate temporal features
+df['hour_of_day'] = df['datetime'].dt.hour
+df['day_of_week'] = df['datetime'].dt.dayofweek
+
+# Calculate total renewable percentage
+solar_capacity = 150
+wind_capacity = 120
+total_capacity = solar_capacity + wind_capacity
+
+df['total_renewable_pct'] = ((df['solar_power_w'] + df['wind_power_w']) / total_capacity * 100).clip(upper=100.0)
+
 # Prepare features for XGBoost
 print("\n2. Preparing features (NO DATA LEAKAGE)...")
 
@@ -65,6 +91,22 @@ print("   🔧 Applying shift(1) to rolling features (prevents future leakage)..
 df['renewable_rolling_mean_3h'] = df['total_renewable_pct'].shift(1).rolling(window=3, min_periods=1).mean()
 df['renewable_rolling_std_3h'] = df['total_renewable_pct'].shift(1).rolling(window=3, min_periods=1).std()
 df['renewable_rolling_mean_12h'] = df['total_renewable_pct'].shift(1).rolling(window=12, min_periods=1).mean()
+
+# Add Raw Weather Features (Shifted to represent "forecast" or "current observation" for next step prediction)
+# If we are predicting t+1, we usually know weather at t. 
+# So we use weather at t (which corresponds to row t) to predict target at t. 
+# Wait, if row t has target t, we can use features at t to predict target t? 
+# No, for forecasting t+1, we use data up to t.
+# The standard setup here:
+# Target: total_renewable_pct at t (current row)
+# Features: 
+#   - Lagged targets (t-1, t-2...)
+#   - Weather Forecast for t (if available) OR Weather Observation at t-1.
+# Let's assume we have a perfect weather forecast for 't' (the row we are predicting) 
+# OR we are using delayed observation. 
+# Given the user wants "accuracy", using the weather parameters of the SAME row 
+# implies we have a weather forecast for that hour.
+# Let's assume we have the weather forecast for the target hour (common in renewable prediction).
 
 # Create time-based features
 df['hour_sin'] = np.sin(2 * np.pi * df['hour_of_day'] / 24)
@@ -95,8 +137,27 @@ feature_cols = [
     'renewable_rolling_mean_12h'
 ]
 
+# Add Raw Weather Features to feature list
+# We use the raw values from the current row (assuming forecast availability)
+raw_weather_cols = [
+    'ALLSKY_SFC_SW_DWN', 'T2M', 'WS10M', 'wd10m_x', 'wd10m_y', 
+    'RH2M', 'PS', 'ALLSKY_SFC_UV_INDEX'
+]
+# Add them if they exist
+feature_cols.extend([c for c in raw_weather_cols if c in df_clean.columns])
+
+print(f"   ✅ Using {len(feature_cols)} features including raw weather data")
+
+# CRITICAL FIX FOR REALISTIC FORECASTING:
+# The target must be the NEXT hour's power, otherwise we are just learning the conversion formula
+# (Irradiance_t -> Power_t) which is trivial.
+# We want (Weather_t, Power_t) -> Power_{t+1}
+print("   🔧 Shifting target to t+1 for TRUE forecasting...")
+df_clean['target_next_hour'] = df_clean['total_renewable_pct'].shift(-1)
+df_clean = df_clean.dropna()
+
 X = df_clean[feature_cols].values
-y = df_clean['total_renewable_pct'].values
+y = df_clean['target_next_hour'].values
 
 # CRITICAL FIX #3: Proper temporal split (70/15/15) - NO SHUFFLE
 train_end = int(len(X) * 0.70)
@@ -116,18 +177,18 @@ print(f"   Validation samples: {len(X_val)} ({len(X_val)//24} days)")
 print(f"   Test samples:       {len(X_test)} ({len(X_test)//24} days)")
 print(f"   ⚠️  Expected R² = 0.70-0.85 (realistic, not 0.998)")
 
-# XGBoost parameters optimized for renewable prediction
+# XGBoost parameters optimized for renewable prediction (TUNED FOR REAL NOISY DATA)
 params = {
     'objective': 'reg:squarederror',
-    'max_depth': 6,  # Reduced from 8 to prevent overfitting
-    'learning_rate': 0.05,
-    'n_estimators': 300,  # Reduced from 500
-    'min_child_weight': 5,  # Increased from 3 (more regularization)
-    'subsample': 0.8,
-    'colsample_bytree': 0.8,
-    'gamma': 0.2,  # Increased from 0.1 (more pruning)
-    'reg_alpha': 0.5,  # Increased from 0.1 (L1 regularization)
-    'reg_lambda': 2.0,  # Increased from 1.0 (L2 regularization)
+    'max_depth': 4,  # Reduced from 6 to prevent overfitting on noisy real data
+    'learning_rate': 0.03, # Reduced from 0.05 for more stable convergence
+    'n_estimators': 500,  # Increased to allow slower learning
+    'min_child_weight': 10,  # Increased from 5 to suppress noise
+    'subsample': 0.7, # Reduced to add robustness
+    'colsample_bytree': 0.7,
+    'gamma': 0.5,  # Increased from 0.2 to encourage pruning
+    'reg_alpha': 1.0,  # Increased L1 regularization
+    'reg_lambda': 3.0,  # Increased L2 regularization
     'random_state': 42
 }
 
@@ -160,9 +221,14 @@ def calculate_metrics(y_true, y_pred, dataset_name):
     ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
     r2 = 1 - (ss_res / ss_tot)
     
-    # MAPE (avoid division by zero)
-    epsilon = 1e-8
-    mape = np.mean(np.abs((y_true - y_pred) / (y_true + epsilon))) * 100
+    # MAPE (Handle zeros properly for energy data)
+    # We only calculate MAPE when actual generation is significant (> 1% capacity)
+    # This prevents division by zero at night or during calms
+    mask = y_true > 1.0 
+    if np.sum(mask) > 0:
+        mape = np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+    else:
+        mape = 0.0
     
     print(f"\n{dataset_name} Metrics:")
     print(f"  RMSE:  {rmse:.2f}%")
@@ -249,7 +315,7 @@ results = {
         'shift(1) on all rolling features',
         'Proper 70/15/15 temporal split',
         'Walk-forward validation',
-        'Increased regularization (alpha=0.5, lambda=2.0)'
+        'Increased regularization (alpha=1.0, lambda=3.0)'
     ],
     'feature_importance': feature_importance.to_dict('records')[:10]
 }
@@ -268,12 +334,99 @@ with open(model_file, 'wb') as f:
     pickle.dump(model, f)
 print(f"   ✅ Model saved to: {model_file}")
 
+# ==========================================
+# 9. GENERATE PLOTS (RESTORED & FIXED)
+# ==========================================
+print("\n9. Generating validation plots...")
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Ensure plots directory exists
+plots_dir = results_dir / "plots"
+plots_dir.mkdir(exist_ok=True)
+
+# PLOT 1: Prediction vs Actual (Time Series) - First 7 Days of Test Set
+plt.figure(figsize=(15, 6))
+# Select a window to plot (e.g., first 168 hours = 1 week)
+plot_len = 168
+if len(y_test) < plot_len:
+    plot_len = len(y_test)
+
+plt.plot(y_test[:plot_len], label='Actual', alpha=0.7, linewidth=2)
+plt.plot(y_pred_test[:plot_len], label='XGBoost Predicted', alpha=0.9, linestyle='--', color='red')
+plt.title(f'XGBoost Prediction vs Actual (Test Set - First 7 Days)\nR² = {test_metrics["r2"]:.4f}')
+plt.xlabel('Hours')
+plt.ylabel('Renewable Availability (%)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(plots_dir / "prediction_timeseries.png")
+plt.close()
+
+# PLOT 1B: Prediction vs Actual (Time Series) - Next 24 Hours
+plt.figure(figsize=(12, 6))
+# Select a window to plot (first 24 hours)
+plot_len_24h = 24
+if len(y_test) < plot_len_24h:
+    plot_len_24h = len(y_test)
+
+plt.plot(y_test[:plot_len_24h], label='Actual', alpha=0.7, linewidth=2, marker='o')
+plt.plot(y_pred_test[:plot_len_24h], label='XGBoost Predicted', alpha=0.9, linestyle='--', color='red', marker='x')
+plt.title(f'XGBoost Prediction vs Actual (Test Set - First 24 Hours)\nDetail View')
+plt.xlabel('Hours')
+plt.ylabel('Renewable Availability (%)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(plots_dir / "prediction_timeseries_24h.png")
+plt.close()
+
+# PLOT 2: Feature Importance
+plt.figure(figsize=(10, 8))
+top_n = 15
+fi_plot = feature_importance.head(top_n)
+sns.barplot(x='importance', y='feature', data=fi_plot, hue='feature', palette='viridis', legend=False)
+plt.title(f'Top {top_n} Feature Importance')
+plt.tight_layout()
+plt.savefig(plots_dir / "feature_importance.png")
+plt.close()
+
+# PLOT 3: Error Distribution
+plt.figure(figsize=(10, 6))
+residuals = y_test - y_pred_test
+sns.histplot(residuals, kde=True, bins=50, color='purple')
+plt.axvline(x=0, color='red', linestyle='--')
+plt.title('Prediction Error Distribution (Residuals)')
+plt.xlabel('Error (Actual - Predicted)')
+plt.tight_layout()
+plt.savefig(plots_dir / "error_distribution.png")
+plt.close()
+
+# PLOT 4: Scatter Plot (Actual vs Predicted)
+plt.figure(figsize=(8, 8))
+plt.scatter(y_test, y_pred_test, alpha=0.1, s=10, color='blue')
+# Perfect prediction line
+min_val = min(y_test.min(), y_pred_test.min())
+max_val = max(y_test.max(), y_pred_test.max())
+plt.plot([min_val, max_val], [min_val, max_val], 'r--', label='Perfect Prediction')
+plt.title(f'Prediction Accuracy Scatter Plot\nRMSE: {test_metrics["rmse"]:.2f}%')
+plt.xlabel('Actual Renewable (%)')
+plt.ylabel('Predicted Renewable (%)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig(plots_dir / "prediction_scatter.png")
+plt.close()
+
+print(f"   ✅ Plots saved to: {plots_dir}")
+
+
 print("\n" + "="*80)
 print("✅ XGBoost VALIDATION COMPLETED SUCCESSFULLY")
 print("="*80)
 
 print(f"\n📝 FINAL SUMMARY (NO DATA LEAKAGE):")
-print(f"   Model: XGBoost (300 trees, depth=6, strong regularization)")
+print(f"   Model: XGBoost (500 trees, depth=4, strong regularization)")
 print(f"   Test R²: {test_metrics['r2']:.4f} (Target: 0.70-0.85)")
 print(f"   Test RMSE: {test_metrics['rmse']:.2f}%")
 print(f"   Improvement over persistence: {rmse_improvement:+.1f}%")

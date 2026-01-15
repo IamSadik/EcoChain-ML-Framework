@@ -2,36 +2,36 @@
   "method": "without_dvfs",
   "use_compression": true,
   "use_blockchain": true,
-  "total_energy_kwh": 0.0815276732174992,
-  "renewable_energy_kwh": 0.04147671278475239,
-  "grid_energy_kwh": 0.04005096043274652,
-  "renewable_percent": 50.874397793864404,
-  "total_carbon_gco2": 16.02038417309861,
-  "total_carbon_kg": 0.01602038417309861,
-  "carbon_avoided_gco2": 16.590685113900932,
+  "total_energy_kwh": 0.0414335222536283,
+  "renewable_energy_kwh": 0.011606022779884876,
+  "grid_energy_kwh": 0.029827499473743423,
+  "renewable_percent": 28.011190332409036,
+  "total_carbon_gco2": 11.930999789497369,
+  "total_carbon_kg": 0.011930999789497368,
+  "carbon_avoided_gco2": 4.642409111953943,
   "tasks_completed": 5000,
   "tasks_generated": 5000,
   "completion_rate": 1.0,
-  "avg_latency_sec": 2.84057589566942,
-  "std_latency_sec": 3.1615822187626605,
-  "max_latency_sec": 22.93329005815448,
-  "operational_cost_usd": 0.004806115251929583,
-  "carbon_credits_earned_usd": 0.00016590685113900962,
-  "net_cost_usd": 0.004640208400790573,
+  "avg_latency_sec": 1.5248116589270664,
+  "std_latency_sec": 3.3161307493948957,
+  "max_latency_sec": 42.94138406086096,
+  "operational_cost_usd": 0.003579299936849211,
+  "carbon_credits_earned_usd": 4.642409111953944e-05,
+  "net_cost_usd": 0.003532875845729671,
   "blockchain_overhead": {
     "total_energy_kwh": 5.0,
     "energy_per_transaction_kwh": 0.001,
     "transactions": 5000,
     "blocks": 2,
-    "carbon_credits_earned_usd": 0.00016590685113900962,
-    "carbon_avoided_gco2": 16.590685113900932,
-    "verified_renewable_kwh": 0.041476712784752366,
-    "verification_premium_usd": 4.1476712784752365e-05,
+    "carbon_credits_earned_usd": 4.642409111953944e-05,
+    "carbon_avoided_gco2": 4.642409111953943,
+    "verified_renewable_kwh": 0.01160602277988492,
+    "verification_premium_usd": 1.1606022779884919e-05,
     "blockchain_energy_cost_usd": 0.6,
     "blockchain_tx_fees_usd": 0.5,
     "blockchain_cost_usd": 1.1,
-    "net_benefit_usd": -1.0997926164360763,
-    "roi_percent": -99.9811469487342
+    "net_benefit_usd": -1.0999419698861006,
+    "roi_percent": -99.99472453510005
   },
   "node_stats": [
     {
@@ -39,58 +39,60 @@
       "name": "Solar Edge Node #1",
       "is_busy": false,
       "current_frequency": 1.5,
-      "tasks_completed": 2348,
-      "total_energy_kwh": 0.059747681422629706,
-      "renewable_energy_kwh": 0.03879672098988282,
-      "grid_energy_kwh": 0.020950960432746583,
-      "renewable_percent": 64.9342703618092,
-      "avg_task_time": 5.476058308748212
+      "tasks_completed": 1264,
+      "total_energy_kwh": 0.015343235894599653,
+      "renewable_energy_kwh": 0.01117680356624712,
+      "grid_energy_kwh": 0.00416643232835254,
+      "renewable_percent": 72.84515237219946,
+      "avg_task_time": 3.771548744408899
     },
     {
       "node_id": "node_2",
       "name": "Grid-Only Node #2",
       "is_busy": false,
       "current_frequency": 2.4,
-      "tasks_completed": 0,
-      "total_energy_kwh": 0.0,
+      "tasks_completed": 1271,
+      "total_energy_kwh": 0.01458209237186455,
       "renewable_energy_kwh": 0.0,
-      "grid_energy_kwh": 0.0,
-      "renewable_percent": 0,
-      "avg_task_time": 0
+      "grid_energy_kwh": 0.01458209237186455,
+      "renewable_percent": 0.0,
+      "avg_task_time": 0.8444842841152836
     },
     {
       "node_id": "node_3",
       "name": "Wind Edge Node #3",
       "is_busy": false,
       "current_frequency": 1.4,
-      "tasks_completed": 2253,
-      "total_energy_kwh": 0.021779991794869488,
-      "renewable_energy_kwh": 0.0026799917948695648,
-      "grid_energy_kwh": 0.01909999999999994,
-      "renewable_percent": 12.304833813118634,
-      "avg_task_time": 0.5793140565496132
+      "tasks_completed": 1212,
+      "total_energy_kwh": 0.0011292192136377575,
+      "renewable_energy_kwh": 0.0004292192136377561,
+      "grid_energy_kwh": 0.0007000000000000001,
+      "renewable_percent": 38.01026483201918,
+      "avg_task_time": 0.17217034119879301
     },
     {
       "node_id": "node_4",
       "name": "Grid-Only Node #4",
       "is_busy": false,
       "current_frequency": 3.5,
-      "tasks_completed": 0,
-      "total_energy_kwh": 0.0,
+      "tasks_completed": 1253,
+      "total_energy_kwh": 0.010378974773526336,
       "renewable_energy_kwh": 0.0,
-      "grid_energy_kwh": 0.0,
-      "renewable_percent": 0,
-      "avg_task_time": 0
+      "grid_energy_kwh": 0.010378974773526336,
+      "renewable_percent": 0.0,
+      "avg_task_time": 0.3925065467350491
     }
   ],
   "scheduler_stats": {
-    "total_tasks_scheduled": 5000,
+    "total_tasks_scheduled": 5030,
     "node_utilization": {
-      "node_3": 2444,
-      "node_1": 2556
+      "node_3": 1219,
+      "node_2": 1276,
+      "node_1": 1273,
+      "node_4": 1262
     },
-    "avg_renewable_forecast": 99.2403088964929,
-    "avg_frequency": 1.4511200000000002,
+    "avg_renewable_forecast": 98.61434173583984,
+    "avg_frequency": 2.2058648111332007,
     "compression_rate": 1.0
   },
   "ablation_config": {
@@ -98,5 +100,7 @@
     "dvfs": false,
     "model_compression": true,
     "blockchain": true
-  }
+  },
+  "task_failures": 30,
+  "retries_attempted": 30
 }

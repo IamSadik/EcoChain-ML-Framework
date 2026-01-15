@@ -188,6 +188,66 @@ class EdgeNode:
                    f"Battery: {battery_capacity_hours:.1f}h ({self.battery_capacity_kwh:.3f} kWh), "
                    f"Deterministic: {self.use_deterministic_trace}")
     
+    def get_available_renewable_energy(self, current_time: float) -> float:
+        """
+        Get currently available renewable energy in kWh (including battery).
+        updates the generation model up to current_time.
+        """
+        if self.renewable_source == 'grid':
+            return 0.0
+            
+        # Update state to now
+        self._update_renewable_generation(current_time)
+        
+        # Calculate available (Generated - Used)
+        # Note: effectively available is capped by battery capacity during generation
+        # but here we just read the trackers
+        available = max(0.0, self.renewable_energy_generated_kwh - self.renewable_energy_used)
+        
+        return available
+
+    def estimate_task_energy_consumption(self, task: Dict[str, Any]) -> float:
+        """
+        Estimate energy consumption for a task in kWh.
+        Used by the scheduler to compare against available renewable energy.
+        """
+        # 1. Base time
+        base_time = task.get('execution_time', 1.0)
+        
+        # Apply hardware characteristics
+        base_time = base_time / self.relative_performance
+        base_time = base_time / self.ml_inference_efficiency
+        
+        # Apply task profile scaling (energy_factor affects TIME primarily)
+        energy_factor = task.get('energy_factor', 1.0)
+        base_time *= energy_factor 
+        
+        # Apply model size scaling
+        model_size_mb = task.get('model_size_mb', 100.0)
+        model_size_factor = model_size_mb / 100.0
+        base_time *= model_size_factor
+        
+        # Assume max frequency/utilization for estimation (conservative)
+        execution_time = base_time
+        
+        # Power approximation (Max power for conservative estimate)
+        power = self.max_power
+        
+        # Energy = Power * Time
+        energy_kwh = (power * execution_time) / (1000 * 3600)
+        return energy_kwh
+
+    def get_battery_level(self, current_time: float) -> float:
+        """
+        Get current battery level as a percentage (0-100).
+        """
+        if self.battery_capacity_kwh <= 0:
+            return 0.0
+            
+        available_kwh = self.get_available_renewable_energy(current_time)
+        pct = (available_kwh / self.battery_capacity_kwh) * 100.0
+        return min(100.0, max(0.0, pct))
+
     def get_renewable_power(self, current_time: float) -> float:
         """
         Calculate available renewable power at given time.
@@ -597,6 +657,71 @@ class EdgeNode:
         # 1. Base execution time variability (±15%) - system load, cache effects
         execution_time *= np.random.uniform(0.85, 1.15)
         
+        # Adjusted for DVFS
+        freq_ratio = self.current_frequency / self.max_frequency
+        dvfs_alpha = 2.0  # Quadratic scaling
+        
+        # Calculate average utilization during task
+        avg_utilization = 0.85  # Typical ML inference utilization
+        
+        # Calculate dynamic power component
+        base_power_consumption = self.calculate_power_consumption(avg_utilization)
+        dynamic_component = (self.max_power - self.base_power) * (freq_ratio ** dvfs_alpha) * avg_utilization
+        effective_power_base = self.base_power + dynamic_component
+        
+        # ========================================================================
+        # FIX #8: CONTINUOUS THERMAL STATE MODELING (Newton's Law of Cooling)
+        # ========================================================================
+        # Edge devices heat up during sustained load, causing thermal throttling.
+        # Temperature rises with task execution, cooling takes time.
+        # 
+        # Thermal dynamics:
+        # - Modeled using Newton's Law of Cooling / Heating approach
+        # - Temperature approaches steady state T_steady based on load
+        # - T_next = T_env + (T_current - T_env) * exp(-k*t) + Heat_Input
+        # 
+        # Previous: Linear addition (unbounded) -> >5000°C (physics violation)
+        # Now: Asymptotic approach to max temp derived from power draw
+        # ========================================================================
+        
+        # Calculate steady-state temperature for this load
+        # Ambient 40°C + 55°C rise at max load -> Max 95°C
+        # Temp depends on POWER (Watts), not energy_factor
+        power_ratio = effective_power_base / self.max_power
+        target_temp = 40.0 + (55.0 * power_ratio)
+        
+        # Thermal time constant (how fast it heats up) - related to thermal mass
+        # Small devices heat fast, large ones slow
+        # We simulate this by adjusting how much closer we get to target per task
+        thermal_k = 0.2  # Heating coefficient
+        
+        # Exponential approach to target temp
+        # T_new = T_old + k * (T_target - T_old)
+        temp_delta = target_temp - self.thermal_state
+        self.thermal_state += temp_delta * thermal_k
+        
+        # Clamp to realistic physics limits (Ambient to Silicon Shutdown)
+        # Emergency thermal shutdown usually at ~100°C
+        self.thermal_state = np.clip(self.thermal_state, 40.0, 98.0)
+        
+        # Calculate thermal throttling based on temperature
+        if self.thermal_state > self.thermal_throttle_threshold:
+            # Linear throttling: 70°C = 0%, 85°C = 40% throttle
+            temp_excess = self.thermal_state - self.thermal_throttle_threshold
+            max_temp_range = self.thermal_critical_threshold - self.thermal_throttle_threshold
+            throttle_factor = min(temp_excess / max_temp_range, 1.0) * self.max_thermal_throttle
+            
+            # Throttling reduces frequency → execution takes longer
+            thermal_slowdown = 1.0 / (1.0 - throttle_factor)
+            execution_time *= thermal_slowdown
+            
+            logger.debug(f"{self.name}: Thermal throttling! Temp = {self.thermal_state:.1f}°C, "
+                        f"throttle = {throttle_factor*100:.1f}%, slowdown = {thermal_slowdown:.2f}×")
+        
+        # Passive cooling (temperature drops between tasks)
+        cooling_rate = np.random.uniform(3, 8)  # 3-8°C drop
+        self.thermal_state = max(40, self.thermal_state - cooling_rate)
+        
         # ========================================================================
         # FIX #7: CO-LOCATED WORKLOADS - Background CPU Contention
         # ========================================================================
@@ -616,40 +741,6 @@ class EdgeNode:
         
         logger.debug(f"{self.name}: CPU contention = {current_contention*100:.1f}%, "
                     f"penalty = {contention_penalty:.2f}×")
-        
-        # ========================================================================
-        # FIX #8: CONTINUOUS THERMAL STATE MODELING
-        # ========================================================================
-        # Edge devices heat up during sustained load, causing thermal throttling.
-        # Temperature rises with task execution, cooling takes time.
-        # 
-        # Thermal dynamics:
-        # - Task heats device by 5-15°C (proportional to power)
-        # - If temp > 70°C: Start throttling (10-40% frequency reduction)
-        # - Passive cooling: Temp drops 3-8°C between tasks
-        # ========================================================================
-        
-        # Task causes temperature rise (proportional to energy consumption and duration)
-        temp_rise = np.random.uniform(5, 15) * energy_factor  # Heavy tasks heat more
-        self.thermal_state += temp_rise
-        
-        # Calculate thermal throttling based on temperature
-        if self.thermal_state > self.thermal_throttle_threshold:
-            # Linear throttling: 70°C = 0%, 85°C = 40% throttle
-            temp_excess = self.thermal_state - self.thermal_throttle_threshold
-            max_temp_range = self.thermal_critical_threshold - self.thermal_throttle_threshold
-            throttle_factor = min(temp_excess / max_temp_range, 1.0) * self.max_thermal_throttle
-            
-            # Throttling reduces frequency → execution takes longer
-            thermal_slowdown = 1.0 / (1.0 - throttle_factor)
-            execution_time *= thermal_slowdown
-            
-            logger.debug(f"{self.name}: Thermal throttling! Temp = {self.thermal_state:.1f}°C, "
-                        f"throttle = {throttle_factor*100:.1f}%, slowdown = {thermal_slowdown:.2f}×")
-        
-        # Passive cooling (temperature drops between tasks)
-        cooling_rate = np.random.uniform(3, 8)  # 3-8°C drop
-        self.thermal_state = max(40, self.thermal_state - cooling_rate)  # Min ambient temp = 40°C
         
         # ========================================================================
         # FIX #9: MEMORY PRESSURE - Swapping Penalty
@@ -733,10 +824,10 @@ class EdgeNode:
         dynamic_component = (self.max_power - self.base_power) * (freq_ratio ** dvfs_alpha) * avg_utilization
         effective_power_base = self.base_power + dynamic_component
         
-        # CRITICAL: Apply energy_factor to power consumption
-        # Heavy tasks (2.0x) consume MORE POWER (not just longer time)
-        # This doubles the energy impact of heavy tasks
-        effective_power_base *= energy_factor
+        # FIX: Remove energy_factor from Power (Watts) calculation
+        # Physical impossibility: A task cannot make a 20W node draw 200W.
+        # energy_factor already scales execution TIME (above), which correctly scales Energy.
+        # effective_power_base *= energy_factor  <-- REMOVED
         
         # 6. Power measurement noise (±5%) - sensor accuracy limitations
         power_measurement_noise = np.random.uniform(0.95, 1.05)

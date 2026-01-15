@@ -1,16 +1,16 @@
 comparison,metric,t_statistic,p_value,significant,cohens_d,improvement
-EcoChain-ML vs. Standard,Total Energy,-17.7875911962969,7.213353101235368e-13,True,-7.954852614179336,True
-EcoChain-ML vs. Standard,Carbon Emissions,-33.8518382100164,9.448714898023293e-18,True,-15.139002280184295,True
-EcoChain-ML vs. Standard,Average Latency,4.573413887109231,0.00023563332620392069,True,2.045292868163558,False
-EcoChain-ML vs. Standard,Renewable Usage,19.36394869979062,1.681559574042595e-13,True,8.659821121110099,True
-EcoChain-ML vs. Standard,Net Cost,-34.66609244248424,6.1977260223298606e-18,True,-15.503147843137299,True
+EcoChain-ML vs. Standard,Total Energy,-16.338019462200858,3.0604748279199687e-12,True,-7.306584427039134,True
+EcoChain-ML vs. Standard,Carbon Emissions,-11.413936772848759,1.1250863730881817e-09,True,-5.10446770299488,True
+EcoChain-ML vs. Standard,Average Latency,-3.083858123736269,0.00640130125777026,True,-1.379143279527851,True
+EcoChain-ML vs. Standard,Renewable Usage,0.6494564388729619,0.5242451518735787,False,0.2904457491489759,True
+EcoChain-ML vs. Standard,Net Cost,-11.691742544510454,7.663682165012582e-10,True,-5.228706220990348,True
 EcoChain-ML vs. Energy Aware Only,Total Energy,0.0,1.0,False,0.0,False
 EcoChain-ML vs. Energy Aware Only,Carbon Emissions,0.0,1.0,False,0.0,False
 EcoChain-ML vs. Energy Aware Only,Average Latency,0.0,1.0,False,0.0,False
 EcoChain-ML vs. Energy Aware Only,Renewable Usage,0.0,1.0,False,0.0,False
-EcoChain-ML vs. Energy Aware Only,Net Cost,-2.001902415004602,0.06059935143758718,False,-0.8952779768542571,True
-EcoChain-ML vs. Blockchain Only,Total Energy,-4.569252325301521,0.00023780125907474486,True,-2.043431761144637,True
-EcoChain-ML vs. Blockchain Only,Carbon Emissions,-27.710042378497366,3.252462247960418e-16,True,-12.392307683544015,True
-EcoChain-ML vs. Blockchain Only,Average Latency,7.8879351086342115,2.9942850899688527e-07,True,3.5275918210026567,False
-EcoChain-ML vs. Blockchain Only,Renewable Usage,22.34071079930934,1.4138862813080413e-14,True,9.991069602583869,True
-EcoChain-ML vs. Blockchain Only,Net Cost,-27.898137076572173,2.8871631186323336e-16,True,-12.476426189764528,True
+EcoChain-ML vs. Energy Aware Only,Net Cost,-0.4977211806599324,0.6247063312892276,False,-0.22258767875941257,True
+EcoChain-ML vs. Blockchain Only,Total Energy,0.6903668189584534,0.4987695008507612,False,0.3087414273202784,False
+EcoChain-ML vs. Blockchain Only,Carbon Emissions,-0.49163442471743884,0.6289192703959088,False,-0.21986559874943926,True
+EcoChain-ML vs. Blockchain Only,Average Latency,1.5444542602932367,0.13987762616137575,False,0.6907009428309664,False
+EcoChain-ML vs. Blockchain Only,Renewable Usage,1.1513789766184876,0.2646412979996749,False,0.5149123319166159,True
+EcoChain-ML vs. Blockchain Only,Net Cost,-0.5212133371131035,0.6085717219542814,False,-0.2330936905128827,True

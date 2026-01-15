@@ -22,220 +22,147 @@ import pandas as pd
 import requests
 from pathlib import Path
 import json
+import time
 
 print("="*80)
-print("DOWNLOADING REAL NREL RENEWABLE ENERGY DATA")
+print("DOWNLOADING REAL HISTORICAL WEATHER DATA (Open-Meteo)")
 print("="*80)
 
 # Create data directory
 data_dir = Path("data/nrel")
 data_dir.mkdir(parents=True, exist_ok=True)
 
-print("\n📥 Downloading NREL data...")
-print("   Note: Using publicly available NREL sample data")
-
-# Option 1: Generate realistic data based on NREL statistical patterns
-# (Since real NREL API requires authentication, we'll use realistic synthetic data
-# that matches NREL statistical properties)
-
-def generate_nrel_realistic_data(
-    hours: int = 2160,  # 90 days for better training
-    solar_capacity: float = 150,  # Watts
-    wind_capacity: float = 120    # Watts
-) -> pd.DataFrame:
+def fetch_real_data(
+    lat=34.05,        # Los Angeles (Good solar/wind mix)
+    lon=-118.24,
+    start_date="2023-01-01",
+    end_date="2023-03-31", # 90 days
+    solar_capacity=150,     # Watts
+    wind_capacity=120       # Watts
+):
     """
-    Generate realistic renewable data matching NREL statistical patterns.
-    
-    Based on NREL data characteristics:
-    - Solar: Clear-sky index with realistic variability (±20-40%)
-    - Wind: Weibull distribution with autocorrelation
-    - Temporal correlation: Hour-to-hour persistence
-    - Weather patterns: Multi-day persistence
-    
-    Returns DataFrame with columns:
-    - timestamp: datetime
-    - hour_of_day: 0-23
-    - day_of_week: 0-6
-    - solar_power_w: Solar power in Watts
-    - wind_power_w: Wind power in Watts
-    - total_renewable_pct: Total renewable percentage (0-100)
+    Fetch real historical weather data from Open-Meteo API.
+    No API Key required for academic use.
     """
-    print("\n1. Generating NREL-realistic renewable energy data...")
-    print(f"   Duration: {hours} hours ({hours//24} days)")
-    print(f"   Solar capacity: {solar_capacity}W")
-    print(f"   Wind capacity: {wind_capacity}W")
-    
-    # Set seed for reproducibility
-    np.random.seed(42)
-    
-    data = []
-    
-    # Weather state tracking (for persistence)
-    cloud_cover = 0.3  # Initial cloud cover (0=clear, 1=overcast)
-    wind_regime = 0.4  # Initial wind regime (0-1)
-    
-    # Create realistic date range
-    start_date = pd.Timestamp('2024-01-01')
-    timestamps = pd.date_range(start=start_date, periods=hours, freq='H')
-    
-    for h in range(hours):
-        timestamp = timestamps[h]
-        hour_of_day = timestamp.hour
-        day_of_week = timestamp.dayofweek
-        day_of_year = timestamp.dayofyear
+    print(f"\n📥 Fetching real data from Open-Meteo Archive...")
+    print(f"   Location: {lat}, {lon}")
+    print(f"   Period: {start_date} to {end_date}")
+
+    url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start_date,
+        "end_date": end_date,
+        "hourly": "shortwave_radiation,wind_speed_10m,cloud_cover",
+        "timezone": "auto"
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
         
-        # ==== REALISTIC SOLAR POWER ====
-        # Based on NREL clear-sky model with realistic variability
-        
-        if 6 <= hour_of_day <= 18:
-            # 1. Base solar radiation (clear-sky model)
-            hour_angle = (hour_of_day - 12) * 15  # degrees
-            zenith_angle_rad = np.radians(abs(hour_angle))
-            
-            # Solar elevation (simplified)
-            # Account for seasonal variation
-            declination = 23.45 * np.sin(np.radians(360 * (day_of_year + 284) / 365))
-            latitude = 40  # Example: Denver, CO (NREL location)
-            
-            # Air mass calculation (simplified)
-            air_mass = 1 / (np.cos(zenith_angle_rad) + 0.15)
-            air_mass = np.clip(air_mass, 1, 10)
-            
-            # Clear-sky irradiance (W/m²)
-            clear_sky_factor = np.exp(-0.15 * air_mass)
-            solar_factor = np.sin((hour_of_day - 6) * np.pi / 12) * clear_sky_factor
-            
-            # 2. Weather effects (cloud cover with persistence)
-            # Cloud cover evolves slowly (multi-hour persistence)
-            cloud_change = np.random.normal(0, 0.05)  # Small changes
-            cloud_cover = np.clip(cloud_cover + cloud_change, 0, 1)
-            
-            # Cloud impact on solar (exponential reduction)
-            cloud_factor = 1.0 - 0.8 * cloud_cover  # 0.2 to 1.0
-            
-            # 3. Random high-frequency variability (passing clouds)
-            if cloud_cover > 0.3:
-                # More variability when partially cloudy
-                hf_noise = np.random.normal(1.0, 0.15)
-            else:
-                # Less variability when clear
-                hf_noise = np.random.normal(1.0, 0.05)
-            hf_noise = np.clip(hf_noise, 0.3, 1.2)
-            
-            # Calculate final solar power
-            solar_power = solar_capacity * solar_factor * cloud_factor * hf_noise
-            solar_power = np.clip(solar_power, 0, solar_capacity)
-        else:
-            solar_power = 0.0
-            # Cloud cover can change at night too
-            cloud_change = np.random.normal(0, 0.03)
-            cloud_cover = np.clip(cloud_cover + cloud_change, 0, 1)
-        
-        # ==== REALISTIC WIND POWER ====
-        # Based on NREL wind toolkit patterns
-        
-        # 1. Wind regime evolution (multi-day persistence)
-        # Wind regimes change slowly over days
-        regime_change = np.random.normal(0, 0.02)
-        wind_regime = np.clip(wind_regime + regime_change, 0.1, 0.8)
-        
-        # 2. Diurnal pattern (wind stronger at night in many locations)
-        if 0 <= hour_of_day < 6 or 20 <= hour_of_day < 24:
-            diurnal_factor = 1.15  # Stronger at night
-        elif 6 <= hour_of_day < 10:
-            diurnal_factor = 0.95  # Morning calm
-        elif 10 <= hour_of_day < 16:
-            diurnal_factor = 1.05  # Afternoon pickup
-        else:
-            diurnal_factor = 1.10  # Evening increase
-        
-        # 3. Weibull distribution for wind speed variability
-        # Shape parameter k=2 (Rayleigh) is typical for wind
-        wind_base = np.random.weibull(2.0) * wind_regime
-        wind_base = np.clip(wind_base, 0, 1.2)
-        
-        # 4. Wind power curve (cubic relationship for realistic turbine)
-        # Wind power ∝ wind_speed³ (simplified power curve)
-        if wind_base < 0.15:
-            # Cut-in wind speed not reached
-            wind_power_factor = 0
-        elif wind_base > 0.85:
-            # Rated wind speed reached (turbine at max power)
-            wind_power_factor = 0.95
-        else:
-            # Power curve region (cubic relationship)
-            normalized_speed = (wind_base - 0.15) / (0.85 - 0.15)
-            wind_power_factor = normalized_speed ** 2.5  # Between quadratic and cubic
-        
-        # Calculate final wind power
-        wind_power = wind_capacity * wind_power_factor * diurnal_factor
-        wind_power = np.clip(wind_power, 0, wind_capacity * 0.95)
-        
-        # ==== CALCULATE TOTAL RENEWABLE PERCENTAGE ====
-        total_capacity = solar_capacity + wind_capacity
-        total_renewable_power = solar_power + wind_power
-        renewable_pct = (total_renewable_power / total_capacity) * 100
-        
-        # Store data
-        data.append({
-            'timestamp': timestamp,
-            'hour_of_day': hour_of_day,
-            'day_of_week': day_of_week,
-            'solar_power_w': solar_power,
-            'wind_power_w': wind_power,
-            'total_renewable_pct': renewable_pct,
-            'cloud_cover': cloud_cover,
-            'wind_regime': wind_regime
+        # Extract hourly data
+        hourly = data['hourly']
+        df = pd.DataFrame({
+            'timestamp': pd.to_datetime(hourly['time']),
+            'irradiance_wm2': hourly['shortwave_radiation'],
+            'wind_speed_ms': hourly['wind_speed_10m'],
+            'cloud_cover_pct': hourly['cloud_cover']
         })
-    
-    df = pd.DataFrame(data)
-    
-    # Calculate statistics
-    print("\n✅ Data generation complete!")
-    print(f"\n📊 Solar Statistics:")
-    print(f"   Mean: {df['solar_power_w'].mean():.2f}W ({df['solar_power_w'].mean()/solar_capacity*100:.1f}% of capacity)")
-    print(f"   Std:  {df['solar_power_w'].std():.2f}W")
-    print(f"   Max:  {df['solar_power_w'].max():.2f}W")
-    
-    print(f"\n📊 Wind Statistics:")
-    print(f"   Mean: {df['wind_power_w'].mean():.2f}W ({df['wind_power_w'].mean()/wind_capacity*100:.1f}% of capacity)")
-    print(f"   Std:  {df['wind_power_w'].std():.2f}W")
-    print(f"   Max:  {df['wind_power_w'].max():.2f}W")
-    
-    print(f"\n📊 Total Renewable:")
-    print(f"   Mean: {df['total_renewable_pct'].mean():.2f}%")
-    print(f"   Std:  {df['total_renewable_pct'].std():.2f}%")
-    print(f"   Min:  {df['total_renewable_pct'].min():.2f}%")
-    print(f"   Max:  {df['total_renewable_pct'].max():.2f}%")
-    
-    return df
+        
+        print(f"   ✅ Received {len(df)} data points")
+        return df
+        
+    except Exception as e:
+        print(f"   ❌ API Request failed: {e}")
+        return None
 
-# Generate data
-df = generate_nrel_realistic_data(hours=2160, solar_capacity=150, wind_capacity=120)
+def process_to_project_format(df, solar_capacity, wind_capacity):
+    """
+    Convert raw weather data (Irradiance, Wind Speed) to Power (Watts)
+    to match the EcoChain-ML format.
+    """
+    print("\n⚙️ Processing raw weather data into Power traces...")
+    
+    # 1. Feature Engineering (Time)
+    df['hour_of_day'] = df['timestamp'].dt.hour
+    df['day_of_week'] = df['timestamp'].dt.dayofweek
+    
+    # 2. Solar Power Conversion
+    # Simple model: Power = Irradiance/1000 * Capacity * Efficiency_Losses
+    # Real panels are ~20% efficient, but capacity is rated at STC (1000 W/m2)
+    # So if Irradiance is 500 W/m2, we get roughly 50% of rated capacity.
+    df['solar_power_w'] = (df['irradiance_wm2'] / 1000.0) * solar_capacity
+    df['solar_power_w'] = df['solar_power_w'].clip(lower=0, upper=solar_capacity)
+    
+    # 3. Wind Power Conversion
+    # Power Curve Model:
+    # Cut-in: 3 m/s, Rated: 12 m/s, Cut-out: 25 m/s
+    def wind_power_curve(speed_ms, capacity):
+        cut_in = 3.0
+        rated = 12.0
+        cut_out = 25.0
+        
+        if speed_ms < cut_in or speed_ms > cut_out:
+            return 0.0
+        elif speed_ms >= rated:
+            return capacity
+        else:
+            # Cubic curve between cut-in and rated
+            pct = (speed_ms - cut_in) / (rated - cut_in)
+            return capacity * (pct ** 3)
 
-# Save to CSV
-csv_file = data_dir / "nrel_realistic_data.csv"
-df.to_csv(csv_file, index=False)
-print(f"\n💾 Saved data to: {csv_file}")
+    df['wind_power_w'] = df['wind_speed_ms'].apply(lambda x: wind_power_curve(x, wind_capacity))
+    
+    # 4. Total Renewable
+    df['total_renewable_pct'] = ((df['solar_power_w'] + df['wind_power_w']) / 
+                                (solar_capacity + wind_capacity)) * 100
+    
+    # 5. Metadata columns required by project
+    df['cloud_cover'] = df['cloud_cover_pct'] / 100.0
+    df['wind_regime'] = df['wind_speed_ms'] / 15.0 # Normalized roughly
+    
+    # Select final columns
+    final_df = df[[
+        'timestamp', 'hour_of_day', 'day_of_week', 
+        'solar_power_w', 'wind_power_w', 'total_renewable_pct', 
+        'cloud_cover', 'wind_regime'
+    ]]
+    
+    return final_df
 
-# Save summary statistics
-stats = {
-    'total_hours': len(df),
-    'total_days': len(df) // 24,
-    'solar_mean_w': float(df['solar_power_w'].mean()),
-    'solar_std_w': float(df['solar_power_w'].std()),
-    'wind_mean_w': float(df['wind_power_w'].mean()),
-    'wind_std_w': float(df['wind_power_w'].std()),
-    'renewable_mean_pct': float(df['total_renewable_pct'].mean()),
-    'renewable_std_pct': float(df['total_renewable_pct'].std())
-}
-
-stats_file = data_dir / "nrel_data_stats.json"
-with open(stats_file, 'w') as f:
-    json.dump(stats, f, indent=2)
-print(f"💾 Saved statistics to: {stats_file}")
-
-print("\n" + "="*80)
-print("✅ NREL DATA PREPARATION COMPLETE")
-print("="*80)
-print("\nNext step: Run lstm_validation.py with real NREL data")
+if __name__ == "__main__":
+    # Settings
+    SOLAR_CAP = 150
+    WIND_CAP = 120
+    
+    # 1. Fetch
+    raw_df = fetch_real_data(solar_capacity=SOLAR_CAP, wind_capacity=WIND_CAP)
+    
+    if raw_df is not None:
+        # 2. Process
+        final_df = process_to_project_format(raw_df, SOLAR_CAP, WIND_CAP)
+        
+        # 3. Save
+        output_file = data_dir / "nrel_realistic_data.csv"
+        final_df.to_csv(output_file, index=False)
+        print(f"\n💾 Saved REAL data to: {output_file}")
+        
+        # 4. Stats
+        stats = {
+            'comments': 'Generated from Real Open-Meteo Data (Los Angeles 2023)',
+            'total_hours': len(final_df),
+            'solar_mean_w': float(final_df['solar_power_w'].mean()),
+            'solar_std_w': float(final_df['solar_power_w'].std()),
+            'wind_mean_w': float(final_df['wind_power_w'].mean()),
+            'wind_std_w': float(final_df['wind_power_w'].std()),
+            'renewable_mean_pct': float(final_df['total_renewable_pct'].mean())
+        }
+        
+        with open(data_dir / "nrel_data_stats.json", 'w') as f:
+            json.dump(stats, f, indent=2)
+            
+        print("\n✅ DONE. You are now using REAL historical weather data.")
+        print("   Next: Run experiments/xgboost_validation.py to retrain the model.")

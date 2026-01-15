@@ -70,14 +70,15 @@ class NetworkSimulator:
         self.use_deterministic_renewable = use_deterministic_renewable
         self.random_seed = random_seed
         
-        # Set random seed if provided
-        if random_seed is not None:
-            np.random.seed(random_seed)
-        
         # Generate deterministic renewable traces if requested
         self.renewable_traces = {}
         if use_deterministic_renewable:
             self.renewable_traces = self._generate_deterministic_traces()
+            
+        # Set random seed if provided
+        # FIX: Move this AFTER trace generation so it doesn't get overridden
+        if random_seed is not None:
+            np.random.seed(random_seed)
         
         # Initialize components
         self.nodes: List[EdgeNode] = []
@@ -175,8 +176,8 @@ class NetworkSimulator:
         # Grid trace (always zero)
         traces['grid'] = {t: 0.0 for t in times}
         
-        # Reset random seed
-        np.random.seed(None)
+        # FIX: Do not reset random seed to None (which uses clock), as it kills reproducibility.
+        # The caller (__init__) will set the correct simulation seed immediately after this returns.
         
         logger.info(f"Generated traces for: {list(traces.keys())}")
         return traces
@@ -896,6 +897,10 @@ class NetworkSimulator:
             energy_aware_routing=True  # Always use energy-aware routing for ablation
         )
         
+        # Track failure statistics for ablation
+        total_failures = 0
+        total_retries = 0
+        
         # Run simulation with specific settings
         for task in self.tasks_generated:
             self.current_time = task.arrival_time
@@ -907,17 +912,73 @@ class NetworkSimulator:
                     compressed=use_compression
                 )
                 
-                if use_blockchain and self.blockchain:
-                    self.blockchain.submit_verification(
-                        task_id=result['task_id'],
-                        node_id=result['node_id'],
-                        result={'output': result},
-                        energy_consumed=result['energy_consumed'],
-                        renewable_energy=result['renewable_energy'],
-                        grid_energy=result['grid_energy']
-                    )
-                
-                self.tasks_completed.append(result)
+                # ============================================================
+                # CRITICAL FIX: TASK FAILURE RETRY LOGIC FOR ABLATION
+                # ============================================================
+                if result.get('failed', False):
+                    total_failures += 1
+                    
+                    # RETRY LOGIC: Try once more on a different node
+                    retry_delay = 0.01  # 36 seconds delay
+                    self.current_time += retry_delay
+                    
+                    try:
+                        # Retry on a different node
+                        result_retry = self.scheduler.schedule_task(
+                            task.to_dict(),
+                            self.current_time,
+                            compressed=use_compression
+                        )
+                        
+                        if result_retry.get('failed', False):
+                            # Retry also failed - log and keep failure result
+                            logger.error(f"Task {result_retry['task_id']} FAILED on retry: {result_retry.get('failure_reason')}")
+                            total_retries += 1
+                            result_retry['retry_failed'] = True
+                            # Accumulate costs
+                            result_retry['execution_time'] = result['execution_time'] + retry_delay * 3600 + result_retry['execution_time']
+                            result_retry['energy_consumed'] = result['energy_consumed'] + result_retry['energy_consumed']
+                            
+                            self.tasks_completed.append(result_retry)
+                        else:
+                            # Retry succeeded!
+                            logger.info(f"Task {result_retry['task_id']} succeeded on retry after initial failure: {result.get('failure_reason', 'UNKNOWN')}")
+                            total_retries += 1
+                            result_retry['retry_succeeded'] = True
+                            # Accumulate costs from first failed attempt
+                            result_retry['execution_time'] = result['execution_time'] + retry_delay * 3600 + result_retry['execution_time']
+                            result_retry['energy_consumed'] = result['energy_consumed'] + result_retry['energy_consumed']
+                            result_retry['renewable_energy'] = result['renewable_energy'] + result_retry['renewable_energy']
+                            result_retry['grid_energy'] = result['grid_energy'] + result_retry['grid_energy']
+                            
+                            # Blockchain verification for successful retry
+                            if use_blockchain and self.blockchain:
+                                self.blockchain.submit_verification(
+                                    task_id=result_retry['task_id'],
+                                    node_id=result_retry['node_id'],
+                                    result={'output': result_retry},
+                                    energy_consumed=result_retry['energy_consumed'],
+                                    renewable_energy=result_retry['renewable_energy'],
+                                    grid_energy=result_retry['grid_energy']
+                                )
+                            
+                            self.tasks_completed.append(result_retry)
+                    except Exception as e:
+                        logger.warning(f"Retry failed for task {task.task_id}: {e}")
+                        self.tasks_completed.append(result)
+                else:
+                    # Success on first try
+                    if use_blockchain and self.blockchain:
+                        self.blockchain.submit_verification(
+                            task_id=result['task_id'],
+                            node_id=result['node_id'],
+                            result={'output': result},
+                            energy_consumed=result['energy_consumed'],
+                            renewable_energy=result['renewable_energy'],
+                            grid_energy=result['grid_energy']
+                        )
+                    
+                    self.tasks_completed.append(result)
                 
             except Exception as e:
                 logger.warning(f"Failed to execute task {task.task_id}: {e}")
@@ -931,6 +992,10 @@ class NetworkSimulator:
         method_name = config_name
         results = self._collect_results(method_name, use_compression, use_blockchain)
         results['ablation_config'] = config_params
+        
+        # Add failure stats
+        results['task_failures'] = total_failures
+        results['retries_attempted'] = total_retries
         
         return results
     
@@ -958,14 +1023,14 @@ class NetworkSimulator:
         # Calculate task metrics
         if self.tasks_completed:
             latencies = [t['execution_time'] for t in self.tasks_completed]
-            avg_latency = np.mean(latencies)
-            std_latency = np.std(latencies)
-            max_latency = np.max(latencies)
+            avg_latency = float(np.mean(latencies))
+            std_latency = float(np.std(latencies))
+            max_latency = float(np.max(latencies))
         else:
             avg_latency = std_latency = max_latency = 0.0
         
         # Renewable percentage
-        renewable_pct = (total_renewable / total_energy * 100) if total_energy > 0 else 0
+        renewable_pct = float((total_renewable / total_energy * 100) if total_energy > 0 else 0)
         
         # Carbon emissions
         carbon_intensity = self.system_config['monitoring']['carbon_intensity_gco2_per_kwh']
@@ -978,8 +1043,8 @@ class NetworkSimulator:
         
         if use_blockchain and self.blockchain:
             blockchain_overhead = self.blockchain.calculate_blockchain_overhead()
-            carbon_credits_earned = blockchain_overhead.get('carbon_credits_earned_usd', 0.0)
-            carbon_avoided_gco2 = blockchain_overhead.get('carbon_avoided_gco2', 0.0)
+            carbon_credits_earned = float(blockchain_overhead.get('carbon_credits_earned_usd', 0.0))
+            carbon_avoided_gco2 = float(blockchain_overhead.get('carbon_avoided_gco2', 0.0))
         
         # Operational cost (grid electricity only)
         electricity_price = self.system_config['monitoring']['electricity_price_per_kwh']
@@ -994,28 +1059,28 @@ class NetworkSimulator:
             'use_blockchain': use_blockchain,
             
             # Energy metrics
-            'total_energy_kwh': total_energy,
-            'renewable_energy_kwh': total_renewable,
-            'grid_energy_kwh': total_grid,
+            'total_energy_kwh': float(total_energy),
+            'renewable_energy_kwh': float(total_renewable),
+            'grid_energy_kwh': float(total_grid),
             'renewable_percent': renewable_pct,
             
             # Carbon metrics
-            'total_carbon_gco2': total_carbon_gco2,
-            'total_carbon_kg': total_carbon_gco2 / 1000,
-            'carbon_avoided_gco2': carbon_avoided_gco2,
+            'total_carbon_gco2': float(total_carbon_gco2),
+            'total_carbon_kg': float(total_carbon_gco2 / 1000),
+            'carbon_avoided_gco2': float(carbon_avoided_gco2),
             
             # Performance metrics
-            'tasks_completed': len(self.tasks_completed),
-            'tasks_generated': len(self.tasks_generated),
-            'completion_rate': len(self.tasks_completed) / len(self.tasks_generated) if self.tasks_generated else 0,
+            'tasks_completed': int(len(self.tasks_completed)),
+            'tasks_generated': int(len(self.tasks_generated)),
+            'completion_rate': float(len(self.tasks_completed) / len(self.tasks_generated) if self.tasks_generated else 0),
             'avg_latency_sec': avg_latency,
             'std_latency_sec': std_latency,
             'max_latency_sec': max_latency,
             
             # Cost metrics
-            'operational_cost_usd': operational_cost,
-            'carbon_credits_earned_usd': carbon_credits_earned,
-            'net_cost_usd': net_cost,
+            'operational_cost_usd': float(operational_cost),
+            'carbon_credits_earned_usd': float(carbon_credits_earned),
+            'net_cost_usd': float(net_cost),
             
             # Blockchain metrics
             'blockchain_overhead': blockchain_overhead,

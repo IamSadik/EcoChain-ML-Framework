@@ -122,10 +122,18 @@ class AblationStudy:
         """Run a single ablation experiment with true component control."""
         logger.info(f"Initializing NetworkSimulator for ablation: {config_name}")
         
+        # FIX: Reset random seed to ensure IDENTICAL environment (nodes) for every ablation
+        # This fixes the "Blockchain Latency Inverse" anomaly where different runs
+        # got slightly different hardware characteristics due to RNG drift.
+        # We use strict seed control to isolate the COMPONENT impact.
+        random.seed(RANDOM_SEED)
+        np.random.seed(RANDOM_SEED)
+        
         # Create simulator
         simulator = NetworkSimulator(
             system_config_path="config/system_config.yaml",
-            experiment_config_path=self.config_path
+            experiment_config_path=self.config_path,
+            random_seed=RANDOM_SEED  # Explicitly pass seed to simulator
         )
         
         # Use the shared workload instead of generating a new one
@@ -147,12 +155,29 @@ class AblationStudy:
         
         return metrics
     
+    def _convert_to_serializable(self, obj):
+        """Convert numpy types to native Python types for JSON serialization."""
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {k: self._convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_to_serializable(v) for v in obj]
+        return obj
+
     def _save_results(self, config_name: str):
         """Save results for a single ablation configuration."""
         output_file = self.metrics_dir / f"{config_name}_metrics.json"
         
+        # Convert to serializable format (handle float32/int64)
+        serializable_results = self._convert_to_serializable(self.results[config_name])
+        
         with open(output_file, 'w') as f:
-            json.dump(self.results[config_name], f, indent=2)
+            json.dump(serializable_results, f, indent=2)
         
         logger.info(f"Saved metrics to {output_file}")
     
@@ -263,10 +288,19 @@ class AblationStudy:
         
         data = np.array(data)
         
-        # Normalize each column to 0-1
-        data_normalized = (data - data.min(axis=0)) / (data.max(axis=0) - data.min(axis=0) + 1e-10)
+        # FIX: Use rank-based normalization to handle outliers better
+        # This prevents one extreme value from dominating the color scale
+        data_normalized = np.zeros_like(data, dtype=float)
+        for col in range(data.shape[1]):
+            # Rank-based normalization: convert values to their rank percentile
+            sorted_indices = np.argsort(data[:, col])
+            ranks = np.empty_like(sorted_indices)
+            ranks[sorted_indices] = np.arange(len(sorted_indices))
+            # Normalize ranks to 0-1
+            data_normalized[:, col] = ranks / (len(ranks) - 1) if len(ranks) > 1 else 0.5
         
-        im = ax.imshow(data_normalized, cmap='RdYlGn_r', aspect='auto')
+        # Use a single-color gradient (shades of blue: white -> dark blue)
+        im = ax.imshow(data_normalized, cmap='Blues', aspect='auto', vmin=0, vmax=1)
         
         # Set ticks
         ax.set_xticks(np.arange(len(metrics)))
@@ -277,9 +311,10 @@ class AblationStudy:
         # Rotate x labels
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
         
-        # Add colorbar
+        # Add colorbar with better labels
         cbar = plt.colorbar(im, ax=ax)
-        cbar.set_label('Normalized (Green=Best, Red=Worst)', rotation=270, labelpad=20)
+        cbar.set_label('Relative Rank\n(Lighter = Better, Darker = Worse)', 
+                      rotation=270, labelpad=25)
         
         # Add text annotations with original values
         original_data = []
@@ -297,14 +332,19 @@ class AblationStudy:
         
         for i in range(len(configs)):
             for j in range(len(metrics)):
+                # Choose text color based on background (dark text on light, light text on dark)
+                text_color = 'white' if data_normalized[i, j] > 0.5 else 'black'
+                
                 if j == 4:  # Cost column - show more decimals
                     text = ax.text(j, i, f'{original_data[i, j]:.6f}',
-                                 ha="center", va="center", color="black", fontsize=8)
+                                 ha="center", va="center", color=text_color, 
+                                 fontsize=8, fontweight='bold')
                 else:
                     text = ax.text(j, i, f'{original_data[i, j]:.2f}',
-                                 ha="center", va="center", color="black", fontsize=8)
+                                 ha="center", va="center", color=text_color, 
+                                 fontsize=8, fontweight='bold')
         
-        ax.set_title('Ablation Study Heatmap\n(Green = Best Performance)', 
+        ax.set_title('Ablation Study Heatmap\n(Rank-Based Normalization, Lighter Colors = Better Performance)', 
                     fontsize=14, fontweight='bold', pad=20)
         
         plt.tight_layout()
@@ -419,8 +459,17 @@ class AblationStudy:
         
         # Save as CSV
         csv_file = self.metrics_dir / 'ablation_table.csv'
-        df.to_csv(csv_file, index=False)
-        logger.info(f"Saved ablation table to {csv_file}")
+        try:
+            df.to_csv(csv_file, index=False)
+            logger.info(f"Saved ablation table to {csv_file}")
+        except PermissionError:
+            # Fallback if file is open in Excel
+            timestamp = datetime.now().strftime("%H%M%S")
+            alt_csv_file = self.metrics_dir / f'ablation_table_{timestamp}.csv'
+            logger.warning(f"Could not save to {csv_file} (Permission Denied). "
+                           f"The file might be open in another program. "
+                           f"Saving to {alt_csv_file} instead.")
+            df.to_csv(alt_csv_file, index=False)
         
         # Save as LaTeX
         latex_file = self.metrics_dir / 'ablation_table.tex'
