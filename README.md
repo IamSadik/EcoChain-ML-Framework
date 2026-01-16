@@ -6,7 +6,6 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-1.7+-orange.svg)](https://xgboost.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Publication Ready](https://img.shields.io/badge/Status-Publication_Ready-success.svg)](https://github.com/IamSadik/EcoChain-ML-Framework)
 
 ---
 
@@ -57,8 +56,10 @@ Edge ML inference consumes significant energy from non-renewable sources. Curren
 | Method | Energy Savings | Carbon Reduction | Renewable Usage | Latency |
 |--------|----------------|------------------|-----------------|---------|
 | **Standard** | 0% | 0% | 30.47% | 2.01s |
-| **Compression Only** | 33.69% | **32.81%** | **29.55%** ⬇️ | 1.67s (17% faster) |
-| **EcoChain-ML** | 32.70% | **33.90%** | **31.70%** ⬆️ | 1.78s (-11.76%) |
+| **Compression Only** | 33.69% | 32.81% | **29.55%** ⬇️ | 1.67s (-17.00%) |
+| **Energy Aware Only** | 32.70% | 33.90% | 31.70% | 1.78s (-11.76%) |
+| **Blockchain Only** | 33.69% | 32.81% | 29.55% | 1.67s (-17.00%) |
+| **EcoChain-ML (Full)** | 32.70% | **33.90%** | **31.70%** ⬆️ | 1.78s (-11.76%) |
 
 **Key Finding:** Compression makes inference faster → scheduler prefers grid nodes → renewable usage **decreases** from 30.47% to 29.55% → only 32.81% carbon reduction despite 33.69% energy savings.
 
@@ -162,42 +163,27 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-### Dependencies
-
-```txt
-torch>=2.0.0
-torchvision>=0.15.0
-xgboost>=1.7.6
-numpy>=1.24.0
-pandas>=2.0.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
-pyyaml>=6.0
-psutil>=5.9.0
-scikit-learn>=1.3.0
-scipy>=1.10.0
-```
 
 ---
 
 ## 🎯 Quick Start
 
-### Run All Experiments (~6-7 minutes total)
+### Run All Experiments (~15-20 minutes total)
 
 ```bash
-# 1. Train XGBoost Renewable Predictor (~30 seconds)
+# 1. Train XGBoost Renewable Predictor (~1 minutes)
 python experiments/xgboost_validation.py
 # Output: R²=0.894, RMSE=11.41W, model saved to results/xgboost_validation/
 
-# 2. Baseline Comparison: 5 methods × 10 runs × 5000 tasks (~3-4 minutes)
+# 2. Baseline Comparison: 5 methods × 10 runs × 5000 tasks (~5-6 minutes)
 python experiments/baseline_comparison.py
 # Output: Proves compression-only = 32.81% carbon, EcoChain-ML = 33.90% carbon
 
-# 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~1 minutes)
+# 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~2 minute)
 python experiments/ablation_study.py
 # Output: Quantifies component contributions (compression: 61.24%)
 
-# 4. Scalability Test: 4 node scales × 5 runs × 5000 tasks (~1-2 minutes)
+# 4. Scalability Test: 4 node scales × 5 runs × 5000 tasks (~12-15 minutes)
 python experiments/scalability_test.py
 # Output: Energy scales -12.7% from 4→128 nodes, latency improves -14.4%
 ```
