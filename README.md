@@ -65,6 +65,24 @@ Edge ML inference consumes significant energy from non-renewable sources. Curren
 
 ### Comparison to State-of-the-Art
 
+| System | Carbon Reduction | Domain | Renewable Prediction | Blockchain Verification | Edge-Specific |
+|--------|------------------|--------|---------------------|------------------------|---------------|
+| **GreenLLM** | 40.6% | LLM/GPU | ❌ | ❌ | ❌ |
+| **GreenScale** | 36.5% | Edge (general) | ❌ | ❌ | ✅ |
+| **CarbonScaler** | 51% | Cloud Batch | ❌ | ❌ | ❌ |
+| **Sprout** | 40% | LLM Inference | ❌ | ❌ | ❌ |
+| **EcoChain-ML** | 33.90% | Edge ML Inference | ✅ (R²=0.894) | ✅ (PoS) | ✅ |
+
+**Why EcoChain-ML is Different:**
+
+1. **Proactive vs Reactive:** Other systems react to current carbon intensity. EcoChain-ML **predicts** renewable availability 1-hour ahead (XGBoost R²=0.894), enabling proactive task scheduling.
+
+2. **Verifiable Carbon Accounting:** EcoChain-ML is the **only** system with blockchain-verified carbon credits, enabling regulatory compliance and carbon market participation.
+
+3. **Novel Research Question:** We prove that **compression alone is insufficient** — a finding not addressed by other systems. Compression reduces energy but routes to grid-powered nodes, decreasing renewable utilization.
+
+4. **Edge ML Focus:** Unlike cloud-focused systems (CarbonScaler) or LLM-specific systems (GreenLLM, Sprout), EcoChain-ML targets **heterogeneous edge devices** (Raspberry Pi, Jetson Nano) with real renewable sources (solar, wind).
+
 - **XGBoost R²=0.894** for renewable prediction (11.41W RMSE)
 - **5.17% better RMSE** than persistence baseline for renewable forecasting
 - **Statistically significant** improvements (p < 0.001)
