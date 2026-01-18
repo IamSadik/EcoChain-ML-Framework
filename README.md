@@ -68,7 +68,7 @@ Edge ML inference consumes significant energy from non-renewable sources. Curren
 | System | Carbon Reduction | Domain | Renewable Prediction | Blockchain Verification | Edge-Specific |
 |--------|------------------|--------|---------------------|------------------------|---------------|
 | **GreenLLM** | 40.6% | LLM/GPU | ❌ | ❌ | ❌ |
-| **GreenScale** | 36.5% | Edge (general) | ❌ | ❌ | ✅ |
+| **GreenScale** | 29.1% | Edge (general) | ❌ | ❌ | ✅ |
 | **CarbonScaler** | 51% | Cloud Batch | ❌ | ❌ | ❌ |
 | **Sprout** | 40% | LLM Inference | ❌ | ❌ | ❌ |
 | **EcoChain-ML** | 33.90% | Edge ML Inference | ✅ (R²=0.894) | ✅ (PoS) | ✅ |
@@ -186,18 +186,18 @@ pip install -r requirements.txt
 
 ## 🎯 Quick Start
 
-### Run All Experiments (~15-20 minutes total)
+### Run All Experiments (~25-30 minutes total)
 
 ```bash
 # 1. Train XGBoost Renewable Predictor (~1 minutes)
 python experiments/xgboost_validation.py
 # Output: R²=0.894, RMSE=11.41W, model saved to results/xgboost_validation/
 
-# 2. Baseline Comparison: 5 methods × 10 runs × 5000 tasks (~5-6 minutes)
+# 2. Baseline Comparison: 5 methods × 10 runs × 5000 tasks (~7-8 minutes)
 python experiments/baseline_comparison.py
 # Output: Proves compression-only = 32.81% carbon, EcoChain-ML = 33.90% carbon
 
-# 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~2 minute)
+# 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~7-8 minutes)
 python experiments/ablation_study.py
 # Output: Quantifies component contributions (compression: 61.24%)
 

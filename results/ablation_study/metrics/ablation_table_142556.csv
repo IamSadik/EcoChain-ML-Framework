@@ -1,0 +1,6 @@
+Configuration,Energy (kWh),Energy Δ (%),Carbon (gCO2),Carbon Δ (%),Latency (s),Latency Δ (%),Renewable (%),Renewable Δ (%),Cost ($)
+Full Ecochain Ml,0.044098,+0.00,12.0434,+0.00,1.7775,+0.00,31.70,+0.00,0.003613
+Without Renewable Prediction,0.036174,-17.97,0.0000,-100.00,2.5512,+43.53,100.00,+68.30,0.000000
+Without Dvfs,0.043283,-1.85,11.9633,-0.67,1.6844,-5.24,30.86,-0.84,0.003589
+Without Compression,0.066666,+51.18,17.8784,+48.45,2.1462,+20.74,32.90,+1.21,0.005364
+Without Blockchain,0.044098,+0.00,12.0434,+0.00,1.7775,+0.00,31.70,+0.00,0.003613

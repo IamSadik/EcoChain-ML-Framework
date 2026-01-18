@@ -1,0 +1,6 @@
+Configuration,Energy Mean±SD,Carbon Mean±SD,Latency Mean±SD,Renewable Mean±SD
+Full Ecochain Ml,0.0441±0.0016,12.04±0.83,1.7775±0.1509,31.70±4.37
+Without Renewable Prediction,0.0362±0.0059,0.00±0.00,2.5512±0.4023,100.00±0.00
+Without Dvfs,0.0433±0.0019,11.96±0.81,1.6844±0.1518,30.86±4.22
+Without Compression,0.0667±0.0019,17.88±1.35,2.1462±0.2022,32.90±5.41
+Without Blockchain,0.0441±0.0016,12.04±0.83,1.7775±0.1509,31.70±4.37
