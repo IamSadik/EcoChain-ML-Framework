@@ -85,15 +85,11 @@ class GreenLLMBaseline:
         # Extract hour of day (0-23)
         hour = int((current_time * 24) % 24)
         
-        # Base carbon intensity for node's region
-        base_carbon = self.carbon_intensity.get(node.region, 400.0)
+        # Base carbon intensity for node's region (use 'default' if no region attribute)
+        node_region = getattr(node, 'region', 'default')
+        base_carbon = self.carbon_intensity.get(node_region, 400.0)
         
         # Diurnal pattern (peak evening hours have higher carbon)
-        # Morning ramp: 6-9 AM (high)
-        # Midday: 10 AM - 3 PM (lower due to solar)
-        # Evening peak: 5-9 PM (highest - fossil peakers)
-        # Night: 10 PM - 5 AM (lower - base load)
-        
         if 6 <= hour < 9:
             multiplier = 1.15  # Morning ramp
         elif 10 <= hour < 15:

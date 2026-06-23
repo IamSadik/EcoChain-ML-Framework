@@ -85,6 +85,10 @@ class BaselineComparison:
                                                                              list(range(42, 42 + self.num_runs)))
         self.confidence_level = self.config.get('statistical_analysis', {}).get('confidence_level', 0.95)
         
+        # DEBUG: Show which seeds are being used
+        logger.info(f"Random seeds from config: {self.random_seeds}")
+        logger.info(f"Seeds source: {'CONFIG FILE' if 'statistical_analysis' in self.config and 'random_seeds' in self.config['statistical_analysis'] else 'DEFAULT FALLBACK'}")
+        
         # Create results directories
         self.results_dir = Path("results/baseline_comparison")
         self.results_dir.mkdir(parents=True, exist_ok=True)

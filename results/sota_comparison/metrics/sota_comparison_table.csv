@@ -1,0 +1,6 @@
+Method,Energy (kWh),Carbon (gCO2),Latency (s),Renewable (%),Energy vs K8s (%),Carbon vs K8s (%)
+Kubernetes,0.0642,17.09,1.7628,33.26,+0.00,+0.00
+Casper,0.0791,1.48,3.9964,95.20,-23.22,+91.36
+Green Llm,0.1054,10.44,5.3184,75.38,-64.32,+38.90
+Compression Only,0.0431,11.80,1.7028,31.33,+32.82,+30.94
+Ecochain Ml,0.0431,11.40,1.7741,33.59,+32.89,+33.27
