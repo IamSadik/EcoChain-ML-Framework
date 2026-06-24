@@ -56,15 +56,15 @@ I am working on a research project called "EcoChain-ML" - a framework for sustai
 
 | Configuration | Energy Δ | Carbon Δ | Renewable (%) | Latency Δ |
 |---------------|----------|----------|---------------|-----------|
-| Full EcoChain-ML | baseline | baseline | 28.74% | baseline |
-| Without Compression | +61.24% ⚠️ | +51.96% | 32.84% | +32.51% |
-| Without DVFS | +0.51% | +1.54% | 28.01% | -4.46% |
-| Without Blockchain | +0.00% | +0.00% | 28.74% | +0.00% |
-| Without Renewable Prediction | -22.02% | -100.00% | 100.00% | +41.88% |
+| Full EcoChain-ML | baseline | baseline | 31.70% | baseline |
+| Without Compression | +51.18% ⚠️ | +48.45% | 32.90% | +20.74% |
+| Without DVFS | -1.85% | -0.67% | 30.86% | -5.24% |
+| Without Blockchain | +0.00% | +0.00% | 31.70% | +0.00% |
+| Without Renewable Prediction | -17.97% | -100.00% | 100.00% | +43.53% |
 
 **Component Contributions:**
-1. Compression: 61.24% of energy savings (dominant factor)
-2. DVFS: 0.51% overhead (minimal impact)
+1. Compression: 51.18% of energy savings (dominant factor)
+2. DVFS: -1.85% (adds marginal overhead)
 3. Blockchain: 0% energy overhead (verification only)
 
 ### Scalability Test (4-128 nodes)

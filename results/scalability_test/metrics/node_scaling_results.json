@@ -100,7 +100,7 @@
     "task_failure_rate": 1.06,
     "retries_attempted": 53,
     "retry_success_rate": 98.11320754716981,
-    "execution_time_sec": 11.89033818244934,
+    "execution_time_sec": 11.349007844924927,
     "num_nodes": 4,
     "simulated_duration_hours": 10.436246706612502,
     "throughput_tasks_per_hour": 479.0994445188761
@@ -258,7 +258,7 @@
     "task_failure_rate": 0.84,
     "retries_attempted": 42,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 20.58341670036316,
+    "execution_time_sec": 20.16567063331604,
     "num_nodes": 8,
     "simulated_duration_hours": 10.405183569621954,
     "throughput_tasks_per_hour": 480.52972506872
@@ -520,7 +520,7 @@
     "task_failure_rate": 0.96,
     "retries_attempted": 48,
     "retry_success_rate": 95.83333333333334,
-    "execution_time_sec": 40.32178449630737,
+    "execution_time_sec": 39.044246196746826,
     "num_nodes": 16,
     "simulated_duration_hours": 10.447339241368294,
     "throughput_tasks_per_hour": 478.5907573673416
@@ -990,7 +990,7 @@
     "task_failure_rate": 0.98,
     "retries_attempted": 49,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 78.91805934906006,
+    "execution_time_sec": 76.95373558998108,
     "num_nodes": 32,
     "simulated_duration_hours": 10.39746822852311,
     "throughput_tasks_per_hour": 480.88629752035473
@@ -1876,7 +1876,7 @@
     "task_failure_rate": 0.8200000000000001,
     "retries_attempted": 41,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 158.69503378868103,
+    "execution_time_sec": 152.43441343307495,
     "num_nodes": 64,
     "simulated_duration_hours": 10.36132282198874,
     "throughput_tasks_per_hour": 482.56386620722105
@@ -3594,7 +3594,7 @@
     "task_failure_rate": 0.72,
     "retries_attempted": 36,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 317.0253236293793,
+    "execution_time_sec": 305.8742365837097,
     "num_nodes": 128,
     "simulated_duration_hours": 10.542727196980332,
     "throughput_tasks_per_hour": 474.26058804140445

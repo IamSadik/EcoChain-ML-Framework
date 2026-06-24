@@ -100,7 +100,7 @@
     "task_failure_rate": 0.86,
     "retries_attempted": 43,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 11.213491439819336,
+    "execution_time_sec": 10.458020448684692,
     "arrival_rate": 50.0,
     "simulated_duration_hours": 37.8456776917492,
     "throughput_tasks_per_hour": 132.11548332479876
@@ -206,7 +206,7 @@
     "task_failure_rate": 0.86,
     "retries_attempted": 43,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 11.04055404663086,
+    "execution_time_sec": 10.50174593925476,
     "arrival_rate": 100.0,
     "simulated_duration_hours": 16.520796225235443,
     "throughput_tasks_per_hour": 302.64885129219874
@@ -312,7 +312,7 @@
     "task_failure_rate": 0.6799999999999999,
     "retries_attempted": 34,
     "retry_success_rate": 100.0,
-    "execution_time_sec": 10.972550392150879,
+    "execution_time_sec": 10.546437740325928,
     "arrival_rate": 200.0,
     "simulated_duration_hours": 10.462539015632288,
     "throughput_tasks_per_hour": 477.89546997429596
@@ -418,7 +418,7 @@
     "task_failure_rate": 0.9400000000000001,
     "retries_attempted": 47,
     "retry_success_rate": 97.87234042553192,
-    "execution_time_sec": 11.002360820770264,
+    "execution_time_sec": 10.518625020980835,
     "arrival_rate": 400.0,
     "simulated_duration_hours": 7.669051242903394,
     "throughput_tasks_per_hour": 651.9711293658107

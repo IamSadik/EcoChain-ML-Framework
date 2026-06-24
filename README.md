@@ -246,8 +246,6 @@ xdg-open results/baseline_comparison/plots/  # Linux
 | **Blockchain Only** | 0.0434 (-33.69%) | 12.24 (-32.81%) | 1.67 (-17.00%) | 29.55% | $0.00367 | $0.00005 | $0.00362 |
 | **EcoChain-ML (Full)** | **0.0441** (-32.70%) | **12.04** (-33.90%) | 1.78 (-11.76%) | **31.70%** | $0.00361 | $0.00006 | **$0.00356** |
 
-> **Note:** The baseline results above were generated before applying the compression fix for `Energy Aware Only`. After the fix, `Energy Aware Only` no longer uses compression, producing distinct metrics from `EcoChain-ML (Full)` and making the blockchain's carbon credit contribution clearly visible.
-
 ### Key Insights
 
 **🔴 Compression Alone is Insufficient:**

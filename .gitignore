@@ -13,3 +13,5 @@ data/
 #VS Code settings
 .vscode/ 
 
+#text files
+*.txt
