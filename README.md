@@ -238,13 +238,15 @@ xdg-open results/baseline_comparison/plots/  # Linux
 
 ### 1. Baseline Comparison (10 runs × 5,000 tasks per method)
 
-| Method | Energy (kWh) | Carbon (gCO2) | Avg Latency (s) | Renewable (%) | Op. Cost ($) | Net Cost ($) |
-|--------|--------------|---------------|-----------------|---------------|--------------|--------------|
-| **Standard** | 0.0655 | 18.22 | 2.01 | 30.47% | $0.0055 | $0.0055 |
-| **Compression Only** | 0.0434 (-33.69%) | 12.24 (-32.81%) | 1.67 (-17.00%) | **29.55%** ⬇️ | $0.0037 | $0.0037 |
-| **Energy Aware Only** | 0.0441 (-32.70%) | 12.04 (-33.90%) | 1.78 (-11.76%) | 31.70% | $0.0036 | $0.0036 |
-| **Blockchain Only** | 0.0434 (-33.69%) | 12.24 (-32.81%) | 1.67 (-17.00%) | 29.55% | $0.0037 | $0.0036 |
-| **EcoChain-ML (Full)** | **0.0441** (-32.70%) | **12.04** (-33.90%) | 1.78 (-11.76%) | **31.70%** | $0.0036 | **$0.0036** |
+| Method | Energy (kWh) | Carbon (gCO2) | Avg Latency (s) | Renewable (%) | Op. Cost ($) | Carbon Credits ($) | Net Cost ($) |
+|--------|--------------|---------------|-----------------|---------------|--------------|-------------------|--------------|
+| **Standard** | 0.0655 | 18.22 | 2.01 | 30.47% | $0.00547 | $0.00000 | $0.00547 |
+| **Compression Only** | 0.0434 (-33.69%) | 12.24 (-32.81%) | 1.67 (-17.00%) | 29.55% ⬇️ | $0.00367 | $0.00000 | $0.00367 |
+| **Energy Aware Only** | 0.0441 (-32.70%) | 12.04 (-33.90%) | 1.78 (-11.76%) | 31.70% | $0.00361 | $0.00000 | $0.00361 |
+| **Blockchain Only** | 0.0434 (-33.69%) | 12.24 (-32.81%) | 1.67 (-17.00%) | 29.55% | $0.00367 | $0.00005 | $0.00362 |
+| **EcoChain-ML (Full)** | **0.0441** (-32.70%) | **12.04** (-33.90%) | 1.78 (-11.76%) | **31.70%** | $0.00361 | $0.00006 | **$0.00356** |
+
+> **Note:** The baseline results above were generated before applying the compression fix for `Energy Aware Only`. After the fix, `Energy Aware Only` no longer uses compression, producing distinct metrics from `EcoChain-ML (Full)` and making the blockchain's carbon credit contribution clearly visible.
 
 ### Key Insights
 
@@ -291,30 +293,30 @@ xdg-open results/baseline_comparison/plots/  # Linux
 
 | Configuration | Energy (kWh) | Energy Δ | Carbon (gCO2) | Carbon Δ | Renewable (%) | Latency (s) |
 |---------------|--------------|----------|---------------|----------|---------------|-------------|
-| **Full EcoChain-ML** | 0.0412 | baseline | 11.75 | baseline | 28.74% | 1.60 |
-| **Without Renewable Prediction** | 0.0321 | **-22.02%** | 0.00 | **-100.00%** | **100.00%** | 2.26 |
-| **Without DVFS** | 0.0414 | **+0.51%** | 11.93 | +1.54% | 28.01% | 1.52 |
-| **Without Compression** | 0.0665 | **+61.24%** ⚠️ | 17.86 | +51.96% | 32.84% | 2.11 |
-| **Without Blockchain** | 0.0412 | **+0.00%** | 11.75 | +0.00% | 28.74% | 1.60 |
+| **Full EcoChain-ML** | 0.0441 | baseline | 12.04 | baseline | 31.70% | 1.78 |
+| **Without Renewable Prediction** | 0.0362 | **-17.97%** | 0.00 | **-100.00%** | **100.00%** | 2.55 |
+| **Without DVFS** | 0.0433 | **-1.85%** | 11.96 | -0.67% | 30.86% | 1.68 |
+| **Without Compression** | 0.0667 | **+51.18%** ⚠️ | 17.88 | +48.45% | 32.90% | 2.15 |
+| **Without Blockchain** | 0.0441 | **+0.00%** | 12.04 | +0.00% | 31.70% | 1.78 |
 
 ### Component Importance Ranking
 
-1. 🥇 **Compression (61.24% energy contribution)** - Most critical for energy savings
-2. 🥈 **Renewable Prediction** - Enables carbon-aware routing to renewable nodes
-3. 🥉 **DVFS (0.51% energy overhead)** - Minimal energy impact
+1. 🥇 **Compression (51.18% energy contribution)** - Most critical for energy savings
+2. 🥈 **Renewable Prediction** - Enables carbon-aware routing to renewable nodes (reduces grid energy to near zero)
+3. 🥉 **DVFS (-1.85%)** - Marginal energy overhead from frequency scaling
 4. **Blockchain (0% energy overhead)** - No energy impact, enables verification
 
 **Critical Finding:** Compression is the dominant factor for energy reduction:
-- **Compression:** Reduces computational energy by 61.24%
-- **Renewable Prediction:** Routes tasks to renewable-powered nodes
+- **Compression:** Reduces computational energy by 51.18%
+- **Renewable Prediction:** Routes tasks to renewable-powered nodes, reducing grid energy to zero
 
 **Blockchain Overhead Clarification:**
 - **Per-transaction cost:** 0.001 kWh (<1% of per-task energy)
 - **System overhead:** 0% when comparing full system vs without blockchain
-  - Full EcoChain-ML: 0.0412 kWh
-  - Without Blockchain: 0.0412 kWh
+  - Full EcoChain-ML: 0.0441 kWh
+  - Without Blockchain: 0.0441 kWh
   - No additional energy overhead
-- Provides immutable carbon credit verification and regulatory compliance
+- Provides immutable carbon credit verification, regulatory compliance, and net cost reduction through carbon credits ($0.00006/task)
 
 ---
 

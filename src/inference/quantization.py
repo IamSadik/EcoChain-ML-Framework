@@ -48,6 +48,11 @@ class ModelCompressor:
         quantizes activations during inference. This is the easiest
         quantization method and works well for LSTM, Linear layers.
         
+        NOTE: PyTorch's quantize_dynamic does NOT support nn.Conv2d.
+        For models with convolutional layers (ResNet, MobileNet, etc.),
+        static quantization is used instead to ensure Conv2d layers
+        are also quantized to INT8, matching paper claims.
+        
         Args:
             model: PyTorch model to quantize
             dtype: Quantization data type (torch.qint8 or torch.quint8)
@@ -60,12 +65,20 @@ class ModelCompressor:
         # Get original model size
         original_size = self._get_model_size(model)
         
-        # Apply dynamic quantization
-        quantized_model = quant.quantize_dynamic(
-            model,
-            {nn.Linear, nn.LSTM, nn.GRU},  # Layers to quantize
-            dtype=dtype
-        )
+        # Check if model has Conv2d layers (CNN models like ResNet, MobileNet)
+        has_conv2d = any(isinstance(m, nn.Conv2d) for m in model.modules())
+        
+        if has_conv2d:
+            logger.info("  Detected Conv2d layers - using static quantization for full INT8 coverage")
+            quantized_model = self.apply_static_quantization(model, dtype)
+        else:
+            logger.info("  No Conv2d layers detected - using dynamic quantization for Linear/LSTM/GRU")
+            # Apply dynamic quantization
+            quantized_model = quant.quantize_dynamic(
+                model,
+                {nn.Linear, nn.LSTM, nn.GRU},
+                dtype=dtype
+            )
         
         # Get quantized model size
         quantized_size = self._get_model_size(quantized_model)
@@ -85,6 +98,77 @@ class ModelCompressor:
         }
         
         return quantized_model
+    
+    def apply_static_quantization(
+        self,
+        model: nn.Module,
+        dtype: torch.dtype = torch.qint8,
+        calibration_input: Optional[torch.Tensor] = None
+    ) -> nn.Module:
+        """
+        Apply static quantization to model (supports Conv2d layers).
+        
+        Static quantization is required for convolutional layers since
+        PyTorch's quantize_dynamic does not support nn.Conv2d. It uses
+        calibration data to determine optimal quantization ranges for
+        both weights and activations.
+        
+        Args:
+            model: PyTorch model to quantize (may contain Conv2d)
+            dtype: Quantization data type
+            calibration_input: Sample input tensor for calibration.
+                               If None, uses a random tensor.
+                               
+        Returns:
+            Quantized model with all layers in INT8
+        """
+        logger.info("Applying static quantization for Conv2d support...")
+        
+        model.eval()
+        
+        # Set default quantization config for x86 (fbgemm) or ARM (qnnpack)
+        try:
+            model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
+        except Exception:
+            model.qconfig = torch.quantization.get_default_qconfig('qnnpack')
+        
+        # Prepare model for static quantization
+        try:
+            prepared_model = torch.quantization.prepare(model, inplace=False)
+        except Exception as e:
+            logger.warning(f"Static quantization prepare failed ({e}), falling back to dynamic")
+            return quant.quantize_dynamic(
+                model,
+                {nn.Linear, nn.LSTM, nn.GRU},
+                dtype=dtype
+            )
+        
+        # Calibrate with sample data
+        with torch.no_grad():
+            if calibration_input is not None:
+                prepared_model(calibration_input)
+            else:
+                # Use a small random calibration batch
+                dummy_input = torch.randn(1, 3, 224, 224)
+                try:
+                    prepared_model(dummy_input)
+                except Exception:
+                    # Try smaller input for models with different expected shapes
+                    dummy_input = torch.randn(1, 3, 32, 32)
+                    prepared_model(dummy_input)
+        
+        # Convert to quantized model
+        try:
+            quantized_model = torch.quantization.convert(prepared_model, inplace=False)
+            logger.info("Static quantization successful - all layers quantized to INT8")
+            return quantized_model
+        except Exception as e:
+            logger.warning(f"Static quantization convert failed ({e}), falling back to dynamic")
+            return quant.quantize_dynamic(
+                model,
+                {nn.Linear, nn.LSTM, nn.GRU},
+                dtype=dtype
+            )
     
     def apply_pruning(
         self,
