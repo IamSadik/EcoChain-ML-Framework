@@ -164,9 +164,13 @@ class GreenLLMBaseline:
         
         # Step 4: Execute at MAX frequency (Green-LLM doesn't use DVFS)
         best_node.set_frequency(best_node.max_frequency)
-        
-        # Execute task (NO compression - Green-LLM doesn't optimize model)
-        result = best_node.execute_task(task, current_time, compressed=False)
+
+        # Honor the compression flag passed in by the SOTA harness. Recent
+        # systems (2024-2025) deploy quantized models in production;
+        # running them uncompressed would unfairly penalize Green-LLM on
+        # energy metrics when the comparison is supposed to be about
+        # scheduling policy.
+        result = best_node.execute_task(task, current_time, compressed=bool(compressed))
         
         # Record decision
         self.scheduling_history.append({
@@ -189,7 +193,7 @@ class GreenLLMBaseline:
         results = []
         for task in tasks:
             try:
-                result = self.schedule_task(task, current_time, compressed=False)
+                result = self.schedule_task(task, current_time, compressed=compressed)
                 results.append(result)
             except Exception as e:
                 logger.warning(f"Failed to schedule task: {e}")
@@ -246,35 +250,37 @@ class CASPERBaseline:
         logger.info("  Features: Current-state routing, NO prediction, NO DVFS, NO compression")
     
     def _calculate_node_carbon_score(self, node: Any, current_time: float) -> float:
+        """Carbon score for a node (lower is better).
+
+        Considers:
+        1. Current renewable availability (no prediction).
+        2. Node power consumption.
+        3. Current load.
+
+        Bug fix: prior versions used ``avg_power`` (a constant for the node)
+        when computing grid power. This systematically *underestimated* grid
+        draw for high-power tasks (which draw more than the average) and
+        *overestimated* it for light tasks. We now use a representative
+        task power (max, the conservative bound) so the carbon accounting
+        is honest for the kind of tasks CASPER is routing.
         """
-        Calculate carbon score for a node (lower is better).
-        
-        CASPER considers:
-        1. Current renewable availability (treats as low-carbon grid)
-        2. Node power consumption
-        3. Current load
-        
-        Does NOT predict future renewable availability.
-        """
-        # Get CURRENT renewable power (no prediction)
         renewable_power = node.get_renewable_power(current_time)
-        avg_power = node.calculate_power_consumption(0.85)
-        
-        # Simple carbon score: power not covered by renewables
-        grid_power = max(0, avg_power - renewable_power)
-        
-        # Grid carbon intensity (CASPER assumes fixed value)
+        # Use max-power bound: a representative "this is what a heavy
+        # task on this node will draw". Light tasks will draw less, but
+        # routing conservatively means we don't claim renewable credit
+        # we cannot reliably supply.
+        representative_power = node.max_power
+
+        grid_power = max(0.0, representative_power - renewable_power)
+
         grid_carbon_intensity = 400.0  # gCO2/kWh (US average)
-        
-        # Carbon emission rate (gCO2/s)
+
         carbon_rate = (grid_power / 1000.0) * grid_carbon_intensity / 3600.0
-        
-        # Add load factor (prefer less loaded nodes)
-        load_factor = node.tasks_completed / (max(n.tasks_completed for n in self.nodes) + 1)
-        
-        # Combined score (lower is better)
+
+        load_factor = node.tasks_completed / (
+            max(n.tasks_completed for n in self.nodes) + 1
+        )
         score = carbon_rate * (1.0 + 0.3 * load_factor)
-        
         return score
     
     def schedule_task(
@@ -302,9 +308,9 @@ class CASPERBaseline:
         
         # Step 3: Execute at MAX frequency (CASPER doesn't use DVFS)
         best_node.set_frequency(best_node.max_frequency)
-        
-        # Execute task (NO compression)
-        result = best_node.execute_task(task, current_time, compressed=False)
+
+        # Honor the compression flag passed in by the SOTA harness.
+        result = best_node.execute_task(task, current_time, compressed=bool(compressed))
         
         # Record decision
         self.scheduling_history.append({
@@ -327,7 +333,7 @@ class CASPERBaseline:
         results = []
         for task in tasks:
             try:
-                result = self.schedule_task(task, current_time, compressed=False)
+                result = self.schedule_task(task, current_time, compressed=compressed)
                 results.append(result)
             except Exception as e:
                 logger.warning(f"Failed to schedule task: {e}")
@@ -405,9 +411,10 @@ class KubernetesBaseline:
         
         # Step 2: Execute at MAX frequency (standard practice)
         node.set_frequency(node.max_frequency)
-        
-        # Execute task (NO compression)
-        result = node.execute_task(task, current_time, compressed=False)
+
+        # Honor the compression flag (Kubernetes class doesn't optimize
+        # the model but production k8s deployments use quantized images).
+        result = node.execute_task(task, current_time, compressed=bool(compressed))
         
         # Record decision
         self.scheduling_history.append({
@@ -429,7 +436,7 @@ class KubernetesBaseline:
         results = []
         for task in tasks:
             try:
-                result = self.schedule_task(task, current_time, compressed=False)
+                result = self.schedule_task(task, current_time, compressed=compressed)
                 results.append(result)
             except Exception as e:
                 logger.warning(f"Failed to schedule task: {e}")
