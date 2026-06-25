@@ -11,7 +11,9 @@
 
 ## 📋 Table of Contents
 
+- [TL;DR](#-tldr)
 - [Overview](#-overview)
+- [The Compression Paradox](#-the-compression-paradox)
 - [Key Results](#-key-results)
 - [Key Features](#-key-features)
 - [Architecture](#️-architecture)
@@ -25,6 +27,18 @@
 
 ---
 
+## 📌 TL;DR
+
+**EcoChain-ML** is a blockchain-verified, carbon-aware ML inference scheduler for edge devices. It combines INT8 quantization, renewable-aware scheduling, and lightweight blockchain to reduce carbon emissions by **33.90%** while achieving **31.70% renewable utilization** — with only **+43.53% latency** and statistically indistinguishable inference accuracy (p=0.703).
+
+**Key takeaways:**
+- **Compression alone isn't enough** — INT8 quantization reduces energy but routes tasks to grid-powered nodes, achieving only 32.81% carbon reduction
+- **Renewable-aware scheduling** adds +43.53% latency (waiting for green energy) but increases carbon savings by **1.09 pp**
+- **Blockchain verification** adds **$0.000056 carbon credits** per inference (enabling verification at negligible cost)
+- **The Compression Paradox**: compression is essential yet insufficient — it provides **51.18% of energy savings** but actually *reduces* renewable utilization (fewer tasks survive renewable wait windows)
+- Provenance: This repo contains **all code, data, and results** 
+---
+
 ## 🔹 Overview
 
 **EcoChain-ML** addresses the critical challenge of carbon emissions in edge ML inference by demonstrating that **compression alone is insufficient for sustainability**. While INT8 quantization achieves 33.69% energy savings, it routes tasks to fast grid-powered nodes, resulting in only **32.81% carbon reduction**. 
@@ -33,9 +47,9 @@ EcoChain-ML integrates five components to achieve **33.90% carbon reduction with
 
 1. **XGBoost Renewable Prediction** - Forecasts solar/wind availability 1 hour ahead (R²=0.894)
 2. **Multi-Objective Scheduler** - Balances QoS (40%), Energy (30%), Renewable (30%)
-3. **DVFS Controller** - 5 frequency levels based on renewable availability
+3. **DVFS Controller** - Continuous frequency interpolation (70%–100% floor) based on renewable availability
 4. **INT8 Quantization** - 4× model compression with energy savings
-5. **PoS Blockchain** - Immutable carbon credit verification (0.001 kWh/transaction)
+5. **PoS Blockchain** - Immutable carbon credit verification (0.001 kWh/tx network cost, 0% system overhead)
 
 ### The Problem
 
@@ -46,6 +60,21 @@ Edge ML inference consumes significant energy from non-renewable sources. Curren
 **Prove compression is insufficient:** Our "Compression Only" baseline achieves 32.81% carbon reduction (29.55% renewable utilization) with 17% faster latency than standard scheduling.
 
 **Renewable-aware scheduling is essential:** EcoChain-ML achieves 33.90% carbon reduction (31.70% renewable utilization) by routing tasks to renewable-powered nodes (Raspberry Pi with solar, Jetson Nano with wind) based on XGBoost predictions.
+
+---
+
+## 🔍 The Compression Paradox
+
+Compression (INT8 quantization) is simultaneously the **most impactful** and **most counterproductive** technique in our framework:
+
+| Aspect | What Happens | Why |
+|--------|-------------|-----|
+| **Energy savings** | Compression contributes **51.18%** of total energy reduction | 4× smaller models use less compute |
+| **Renewable utilization** | Compression *reduces* renewable usage vs uncompressed | Faster tasks finish before renewable window opens |
+| **Carbon reduction** | Compression alone: **32.81%**; Full system: **33.90%** | Renewable scheduling adds only +1.09 pp on top of compression |
+| **Without compression** | Carbon reduction drops to **-7.11%** (increase!) | Uncompressed tasks are too slow for renewable wait windows |
+
+**Why this matters:** A naive approach ("just compress everything") is counterproductive for sustainability. Compression shrinks the time window during which a task can be deferred to wait for renewable energy, paradoxically *increasing* grid energy dependence for the overall system. EcoChain-ML's multi-objective scheduler resolves this by actively routing compressed tasks toward renewable nodes rather than letting them race to completion on grid power.
 
 ---
 
@@ -104,9 +133,9 @@ Edge ML inference consumes significant energy from non-renewable sources. Curren
 |---------|--------------|--------|
 | 🌞 **Renewable Prediction** | XGBoost (500 trees, R²=0.894, 11.41W RMSE) | Critical for carbon-aware routing |
 | ⚖️ **Multi-Objective Scheduler** | 0.4×QoS + 0.3×Energy + 0.3×Renewable | 31.70% renewable vs 29.55% compression-only |
-| 🔋 **DVFS Integration** | 5 frequency levels (0.6-3.5 GHz) | 0.51% additional energy overhead |
-| 🗜️ **Model Compression** | INT8 dynamic quantization (4× reduction) | 61.24% energy contribution |
-| ⛓️ **PoS Blockchain** | 0.001 kWh/transaction | Enables carbon credit verification |
+| 🔋 **DVFS Control** | Continuous freq interpolation (70%–100% floor) | 1.85% additional energy (traded for +0.84 pp renewable) |
+| 🗜️ **Model Compression** | INT8 dynamic quantization (4× reduction) | 51.18% energy contribution (most impactful) |
+| ⛓️ **PoS Blockchain** | 0.001 kWh/tx network cost, 0% system overhead | Enables carbon credit verification |
 | 📈 **Scalability** | 4-128 nodes tested | -12.7% energy, -14.4% latency at 128 nodes |
 
 ---
@@ -199,7 +228,7 @@ python experiments/baseline_comparison.py
 
 # 3. Ablation Study: 5 configurations × 5 runs × 5000 tasks (~7-8 minutes)
 python experiments/ablation_study.py
-# Output: Quantifies component contributions (compression: 61.24%)
+# Output: Quantifies component contributions (compression: 51.18%, most impactful)
 
 # 4. Scalability Test: 4 node scales × 5 runs × 5000 tasks (~12-15 minutes)
 python experiments/scalability_test.py
@@ -299,10 +328,10 @@ xdg-open results/baseline_comparison/plots/  # Linux
 
 ### Component Importance Ranking
 
-1. 🥇 **Compression (51.18% energy contribution)** - Most critical for energy savings
-2. 🥈 **Renewable Prediction** - Enables carbon-aware routing to renewable nodes (reduces grid energy to near zero)
-3. 🥉 **DVFS (-1.85%)** - Marginal energy overhead from frequency scaling
-4. **Blockchain (0% energy overhead)** - No energy impact, enables verification
+1. 🥇 **Compression (51.18% energy contribution)** — Most critical for energy savings
+2. 🥈 **Renewable Prediction** — Enables carbon-aware routing to renewable nodes (enables 100% renewable at +43.53% latency cost)
+3. 🥉 **DVFS (1.85% additional energy)** — Trades marginal energy overhead for +0.84 pp renewable gain
+4. **Blockchain (0% system overhead)** — No energy impact, enables verification
 
 **Critical Finding:** Compression is the dominant factor for energy reduction:
 - **Compression:** Reduces computational energy by 51.18%
@@ -553,7 +582,7 @@ model.fit(X_train, y_train)  # R²=0.894 on test set
 
 ### Implementation Summary
 
-EcoChain-ML employs a modular architecture with six core packages (simulator, scheduler, inference, monitoring, blockchain, and configuration management) comprising approximately 4,200 lines of Python code. Key technical decisions include XGBoost for renewable prediction achieving R²=0.894 (5.17% improvement over persistence baseline with RMSE=11.41W), Proof-of-Stake consensus with 0.001 kWh/transaction providing immutable verification, a multi-objective scheduler balancing QoS (α=0.4), energy (β=0.3), and renewable utilization (γ=0.3), and renewable-controlled DVFS with five frequency levels (0.6-3.5 GHz). The experimental framework executes 250,000+ simulated ML inference tasks across baseline comparison (5 methods × 10 runs × 5,000 tasks = 250,000 assessments), ablation study (5 configurations × 5 runs × 5,000 tasks = 125,000 assessments), and scalability analysis (6 node scales × 5 runs × 5,000 tasks = 150,000 assessments). Statistical rigor is ensured through paired experimental design with identical workloads across methods, two-sample t-tests achieving p = 3.06×10⁻¹² (highly significant for energy), Cohen's d = -7.31 (energy), -5.10 (carbon) - very large effect sizes, and fixed random seeds for reproducibility. Ablation studies validate that compression dominates energy savings (61.24% contribution), and the "Compression Only" baseline proves that compression alone achieves 32.81% carbon reduction with 29.55% renewable usage, while EcoChain-ML achieves 33.90% carbon reduction with 31.70% renewable usage—demonstrating that renewable-aware scheduling improves sustainability in edge ML inference systems.
+EcoChain-ML employs a modular architecture with six core packages (simulator, scheduler, inference, monitoring, blockchain, and configuration management) comprising approximately 4,200 lines of Python code. Key technical decisions include XGBoost for renewable prediction achieving R²=0.894 (5.17% improvement over persistence baseline with RMSE=11.41W), Proof-of-Stake consensus with network transmission cost of 0.001 kWh/tx and 0% system overhead, a multi-objective scheduler balancing QoS (α=0.4), energy (β=0.3), and renewable utilization (γ=0.3), and renewable-controlled DVFS with continuous frequency interpolation (70%–100% of f_max). The experimental framework executes 250,000+ simulated ML inference tasks across baseline comparison (5 methods × 10 runs × 5,000 tasks = 250,000 assessments), ablation study (5 configurations × 5 runs × 5,000 tasks = 125,000 assessments), and scalability analysis (6 node scales × 5 runs × 5,000 tasks = 150,000 assessments). Statistical rigor is ensured through paired experimental design with identical workloads across methods, two-sample t-tests achieving p = 3.06×10⁻¹² (highly significant for energy), Cohen's d = -7.31 (energy), -5.10 (carbon) - very large effect sizes, and fixed random seeds for reproducibility. Ablation studies validate that compression provides the largest contribution (51.18% of energy savings), and the "Compression Only" baseline proves that compression alone achieves 32.81% carbon reduction with 29.55% renewable usage, while EcoChain-ML achieves 33.90% carbon reduction with 31.70% renewable usage—demonstrating that renewable-aware scheduling improves sustainability in edge ML inference systems.
 
 ---
 
@@ -580,7 +609,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use EcoChain-ML in your research, please cite:
 
 ```bibtex
-@inproceedings{ComingSoon 🙂
+@article{mahmud2024ecochain,
+  title={EcoChain-ML: A Hybrid Framework for Energy-Efficient ML Model Verification Using Lightweight Blockchain},
+  author={Mahmud, Sadik and Fahim, Foysal and Nuhil, KH Tanjim Fayes and Sorol, Yeamine Alam and Tropa, Nafrin Kabir and Islam, MD. Motaharul},
+  journal={arXiv preprint},
+  year={2024}
 }
 ```
 
